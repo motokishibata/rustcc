@@ -33,7 +33,7 @@ pub fn to_asmstr(input: &str) -> String {
     return s;
 }
 
-fn len_number(src: &str) -> usize {
+pub fn len_number(src: &str) -> usize {
     let mut counter = 0;
     for ch in src.chars() {
         let num: i32 = ch as i32 - 48;
@@ -45,16 +45,4 @@ fn len_number(src: &str) -> usize {
         }
     }
     return counter;
-}
-
-#[cfg(test)]
-#[test]
-fn len_number_test() {
-    let ret = len_number("1+1");
-    assert_eq!(ret, 1);
-}
-#[test]
-fn len_number_test2() {
-    let ret = len_number("10-");
-    assert_eq!(ret, 2);
 }
