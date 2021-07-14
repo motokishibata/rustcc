@@ -1,4 +1,8 @@
 use std::env;
+use std::io::Write;
+use std::fs::File;
+
+mod compile;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -7,9 +11,16 @@ fn main() {
         return;
     }
 
-    print!(".intel_syntax noprefix\n");
-    print!(".globl main\n");
-    print!("main:\n");
-    print!("  mov rax, {}\n", args[1]);
-    print!("  ret\n");
+    let asmstr = compile::to_asmstr(args[1].as_str());
+    println!("---------asm---------");
+    println!("{}", asmstr);
+    println!("---------asm---------");
+
+    if let Ok(v) = File::create("./tmp.s") {
+        let mut file = v;
+        match file.write_all(asmstr.as_bytes()) {
+            Ok(()) => println!("success"),
+            Err(_) => println!("failure")
+        }
+    }
 }
