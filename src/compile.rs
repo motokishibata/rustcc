@@ -4,9 +4,10 @@ pub fn to_asmstr(input: &str) -> String {
     s.push_str(".globl main\n");
     s.push_str("main:\n");
 
-    s.push_str(format!("  mov rax, {}\n", &input[0..1]).as_str());
-
-    let mut count = 1;
+    let mut count = 0;
+    let nlen = len_number(&input[count..]);
+    s.push_str(format!("  mov rax, {}\n", &input[count..(count+nlen)]).as_str());
+    count += nlen;
 
     while count < input.chars().count() {
         let ch = &input[count..(count+1)];
