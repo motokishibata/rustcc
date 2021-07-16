@@ -6,17 +6,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn len_number_test() {
-        let ret = compile::len_number("1+1");
-        assert_eq!(ret, 1);
-    }
-    #[test]
-    fn len_number_test2() {
-        let ret = compile::len_number("10-");
-        assert_eq!(ret, 2);
-    }
-
-    #[test]
     fn tokenize_test1() {
         let tokens = token::tokenize("1 +2");
         let tok = &tokens[0];
@@ -34,7 +23,18 @@ mod tests {
     fn tokenize_test3() {
         let tokens = token::tokenize("1 +2");
         let tok = &tokens[tokens.len() - 1];
-        let k = &tok.kind;
-        assert!(matches!(token::TokenKind::Eof, k));
+        let _k = &tok.kind;
+        assert!(matches!(token::TokenKind::Eof, _k));
+    }
+
+    #[test]
+    fn tokenize_test4() {
+        let tokens = token::tokenize("10+2");
+        let tok = &tokens[0];
+        assert_eq!(Some(10), tok.val);
+        let tok2 = &tokens[1];
+        assert_eq!(Some('+'), tok2.ch);
+        let tok3 = &tokens[2];
+        assert_eq!(Some(2), tok3.val);
     }
 }

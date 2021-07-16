@@ -13,15 +13,39 @@ pub struct Token {
 pub fn tokenize(src: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = Vec::new();
 
-    for ch in src.chars() {
-        let tok = match ch {
-            ' ' => continue,
-            '+' | '-' => Token { kind: TokenKind::Reserved, val: None, ch: Some(ch) },
-            '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9' => Token { kind: TokenKind::Num, val: Some(char_to_num(ch)), ch: Some(ch) },
-            _ => panic!("invalid token"),
-        };
+    let mut count = 0;
+    while count < src.chars().count() {
+        let c = src.chars().nth(count).unwrap();
 
-        tokens.push(tok);
+        if c == ' ' {
+            count += 1;
+            continue;
+        }
+
+        if c == '+' || c == '-' {
+            tokens.push(Token { kind: TokenKind::Reserved, val: None, ch: Some(c) });
+            count += 1;
+            continue;
+        }
+
+        if is_num(c) {
+            let mut num_buf = String::new();
+            num_buf.push(c);
+            count += 1;
+            for ch in src.chars().skip(count) {
+                if is_num(ch) {
+                    num_buf.push(ch);
+                    count += 1;
+                } else {
+                    break;
+                }
+            }
+            let num: i32 = num_buf.parse().unwrap();
+            tokens.push(Token { kind: TokenKind::Num, val: Some(num), ch: None });
+            continue;
+        }
+
+        panic!("not support character");
     }
 
     tokens.push(Token {
@@ -34,5 +58,10 @@ pub fn tokenize(src: &str) -> Vec<Token> {
 
 pub fn char_to_num(ch: char) -> i32 {
     return ch as i32 - 48;
+}
+
+pub fn is_num(ch: char) -> bool {
+    let num = char_to_num(ch);
+    return 0 <= num && num <= 9;
 }
 

@@ -3,6 +3,7 @@ use std::io::Write;
 use std::fs::File;
 
 mod compile;
+mod token;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -11,7 +12,8 @@ fn main() {
         return;
     }
 
-    let asmstr = compile::to_asmstr(args[1].as_str());
+    let tokens = token::tokenize(args[1].as_str());
+    let asmstr = compile::to_asmstr(tokens);
     println!("---------asm---------");
     println!("{}", asmstr);
     println!("---------asm---------");
