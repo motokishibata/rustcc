@@ -18,16 +18,34 @@ pub struct Node {
     pub val: isize,
 }
 
+fn new_node(kind: NodeKind, lhs: Option<Node>, rhs: Option<Node>) -> Node {
+    return Node {
+        kind: kind,
+        lhs: Box::new(lhs),
+        rhs: Box::new(rhs),
+        val: 0
+    };
+}
+
+fn new_num_node(val: isize) -> Node {
+    return Node {
+        kind: NodeKind::Num,
+        lhs: Box::new(None),
+        rhs: Box::new(None),
+        val: val,
+    };
+}
+
 // expr = mul ("+" mul | "-" mul)*
 pub fn expr(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let mut token_que = VecDeque::from(tokens);
+    let mut tokens = tokens;
 
-    let ret = mul(token_que);
+    let ret = mul(tokens);
     let mut node = ret.0;
-    token_que = ret.1;
+    tokens = ret.1;
 
     loop {
-        let token = match token_que.front() {
+        let token = match tokens.front() {
             Some(tk) => tk,
             None => break,
         };
@@ -37,80 +55,55 @@ pub fn expr(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
 
         if token.kind == TokenKind::Reserved {
             if token.ch.unwrap() == '+' {
-                token_que.pop_front();
-                let _lhs = Box::new(Some(node));
-                let ret = mul(token_que);
-                let _rhs = Box::new(Some(ret.0));
-                token_que = ret.1;
+                tokens.pop_front();
 
-                node = Node {
-                    kind: NodeKind::Add,
-                    lhs: _lhs,
-                    rhs: _rhs,
-                    val: 0,
-                };
+                let ret = mul(tokens);
+                tokens = ret.1;
+
+                node = new_node(NodeKind::Add, Some(node), Some(ret.0));
                 continue;
             }
             else if token.ch.unwrap() == '-' {
-                token_que.pop_front();
-                let _lhs = Box::new(Some(node));
-                let ret = mul(token_que);
-                let _rhs = Box::new(Some(ret.0));
-                token_que = ret.1;
+                tokens.pop_front();
 
-                node = Node {
-                    kind: NodeKind::Sub,
-                    lhs: _lhs,
-                    rhs: _rhs,
-                    val: 0,
-                };
+                let ret = mul(tokens);
+                tokens = ret.1;
+
+                node = new_node(NodeKind::Sub, Some(node), Some(ret.0));
                 continue;
             }
         }
         break;
     }
 
-    return (node, token_que);
+    return (node, tokens);
 }
 // mul = unary ("*" unary | "/" unary)*
 pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let (mut node, mut que) = unary(tokens);
+    let (mut node, mut tokens) = unary(tokens);
 
     loop {
-        let token = match que.front() {
+        let token = match tokens.front() {
             Some(tk) => tk,
             None => break,
         };
 
         if token.kind == TokenKind::Reserved {
             if token.ch.unwrap() == '*' {
-                que.pop_front();
-                let _lhs = Box::new(Some(node));
-                let ret = unary(que);
-                let _rhs = Box::new(Some(ret.0));
-                que = ret.1;
-    
-                node = Node {
-                    kind: NodeKind::Mul,
-                    lhs: _lhs,
-                    rhs: _rhs,
-                    val: 0,
-                };
+                tokens.pop_front();
+                let ret = unary(tokens);
+                tokens = ret.1;
+
+                node = new_node(NodeKind::Mul, Some(node), Some(ret.0));
                 continue;
             }
             else if token.ch.unwrap() == '/' {
-                que.pop_front();
-                let _lhs = Box::new(Some(node));
-                let ret = unary(que);
-                let _rhs = Box::new(Some(ret.0));
-                que = ret.1;
+                tokens.pop_front();
+
+                let ret = unary(tokens);
+                tokens = ret.1;
     
-                node = Node {
-                    kind: NodeKind::Div,
-                    lhs: _lhs,
-                    rhs: _rhs,
-                    val: 0,
-                };
+                node = new_node(NodeKind::Div, Some(node), Some(ret.0));
                 continue;
             }
         }
@@ -118,40 +111,32 @@ pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         break;
     }
 
-    return (node, que);
+    return (node, tokens);
 }
 
 // unary = ("+" | "-")? primary
 pub fn unary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let mut que = tokens;
-    let token = que.front().unwrap();
+    let mut tokens = tokens;
+    let token = tokens.front().unwrap();
+
     if token.kind == TokenKind::Reserved {
         if token.ch.unwrap() == '+' {
-            que.pop_front();
-            return primary(que);
+            tokens.pop_front();
+            return primary(tokens);
         }
         else if token.ch.unwrap() == '-' {
-            que.pop_front();
-            let _lhs = Node {
-                kind: NodeKind::Num,
-                lhs: Box::new(None),
-                rhs: Box::new(None),
-                val: 0
-            };
-            let ret = primary(que);
-            let _rhs = ret.0;
-            que = ret.1;
-            let node = Node {
-                kind: NodeKind::Sub,
-                lhs: Box::new(Some(_lhs)),
-                rhs: Box::new(Some(_rhs)),
-                val: 0
-            };
-            return (node, que);
+            tokens.pop_front();
+            let _lhs = new_num_node(0);
+
+            let ret = primary(tokens);
+            tokens = ret.1;
+
+            let node = new_node(NodeKind::Sub, Some(_lhs), Some(ret.0));
+            return (node, tokens);
         }
     }
 
-    return primary(que);
+    return primary(tokens);
 }
 
 // primary = num | "(" expr ")"
@@ -166,12 +151,7 @@ pub fn primary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         }
         panic!("not support operation");
     }
-
-    let node = Node {
-        kind: NodeKind::Num,
-        lhs: Box::new(None),
-        rhs: Box::new(None),
-        val: token.val.unwrap() as isize
-    };
+    
+    let node = new_num_node(token.val.unwrap() as isize);
     return (node, que);
 }
