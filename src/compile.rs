@@ -5,6 +5,14 @@ use std::fs::File;
 use super::*;
 
 pub fn compile(input: &str) {
+    let mut input = input;
+
+    // cargo runでは "-" 始まりの引数を渡せないためエスケープ用の文字を追加
+    let first = &input[0..1];
+    if first == "^" {
+        input = &input[1..];
+    }
+    
     let tokens = token::tokenize(input);
     let (top_node, _) = parse::expr(VecDeque::from(tokens));
 
@@ -17,6 +25,8 @@ pub fn compile(input: &str) {
 
     asm_str.push_str("  pop rax\n");
     asm_str.push_str("  ret\n");
+
+    println!("{}", asm_str);
 
     if let Ok(v) = File::create("./tmp.s") {
         let mut file = v;

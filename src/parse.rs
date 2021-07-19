@@ -72,9 +72,9 @@ pub fn expr(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
 
     return (node, token_que);
 }
-// mul = primary ("*" primary | "/" primary)*
+// mul = unary ("*" unary | "/" unary)*
 pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let (mut node, mut que) = primary(tokens);
+    let (mut node, mut que) = unary(tokens);
 
     loop {
         let token = match que.front() {
@@ -86,7 +86,7 @@ pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
             if token.ch.unwrap() == '*' {
                 que.pop_front();
                 let _lhs = Box::new(Some(node));
-                let ret = primary(que);
+                let ret = unary(que);
                 let _rhs = Box::new(Some(ret.0));
                 que = ret.1;
     
@@ -101,7 +101,7 @@ pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
             else if token.ch.unwrap() == '/' {
                 que.pop_front();
                 let _lhs = Box::new(Some(node));
-                let ret = primary(que);
+                let ret = unary(que);
                 let _rhs = Box::new(Some(ret.0));
                 que = ret.1;
     
@@ -119,6 +119,39 @@ pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
     }
 
     return (node, que);
+}
+
+// unary = ("+" | "-")? primary
+pub fn unary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
+    let mut que = tokens;
+    let token = que.front().unwrap();
+    if token.kind == TokenKind::Reserved {
+        if token.ch.unwrap() == '+' {
+            que.pop_front();
+            return primary(que);
+        }
+        else if token.ch.unwrap() == '-' {
+            que.pop_front();
+            let _lhs = Node {
+                kind: NodeKind::Num,
+                lhs: Box::new(None),
+                rhs: Box::new(None),
+                val: 0
+            };
+            let ret = primary(que);
+            let _rhs = ret.0;
+            que = ret.1;
+            let node = Node {
+                kind: NodeKind::Sub,
+                lhs: Box::new(Some(_lhs)),
+                rhs: Box::new(Some(_rhs)),
+                val: 0
+            };
+            return (node, que);
+        }
+    }
+
+    return primary(que);
 }
 
 // primary = num | "(" expr ")"
