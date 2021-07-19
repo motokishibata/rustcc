@@ -1,8 +1,11 @@
-pub mod compile;
 pub mod token;
+pub mod parse;
+pub mod stackmachine;
+pub mod compile;
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
     use super::*;
 
     #[test]
@@ -36,5 +39,45 @@ mod tests {
         assert_eq!(Some('+'), tok2.ch);
         let tok3 = &tokens[2];
         assert_eq!(Some(2), tok3.val);
+    }
+
+    #[test]
+    fn parse_test() {
+        let tokens = token::tokenize("1+2");
+        let (node, _) = parse::expr(VecDeque::from(tokens));
+
+        let _n = &node.kind;
+        assert!(matches!(parse::NodeKind::Add, _n));
+        let left = (*node.lhs).unwrap();
+        assert_eq!(1, left.val);
+        let right = (*node.rhs).unwrap();
+        assert_eq!(2, right.val);
+    }
+
+    #[test]
+    fn parse_test2() {
+        let tokens = token::tokenize("1*2");
+        let (node, _) = parse::expr(VecDeque::from(tokens));
+
+        let _n = &node.kind;
+        assert!(matches!(parse::NodeKind::Mul, _n));
+        let left: parse::Node = (*node.lhs).unwrap();
+        assert_eq!(1, left.val);
+        let right: parse::Node = (*node.rhs).unwrap();
+        assert_eq!(2, right.val);
+    }
+
+    #[test]
+    fn parse_test3() {
+        let tokens = token::tokenize("1+(5-3)");
+        let (node, _) = parse::expr(VecDeque::from(tokens));
+
+        let _n = &node.kind;
+        assert!(matches!(parse::NodeKind::Add, _n));
+        let left: parse::Node = (*node.lhs).unwrap();
+        assert_eq!(1, left.val);
+        let right: parse::Node = (*node.rhs).unwrap();
+        let _n2 = &right.kind;
+        assert!(matches!(parse::NodeKind::Sub, _n2));
     }
 }

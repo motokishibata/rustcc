@@ -1,37 +1,28 @@
-use super::token;
+use std::collections::VecDeque;
+use std::io::Write;
+use std::fs::File;
 
-pub fn to_asmstr(tokens: Vec<token::Token>) -> String {
+use super::*;
 
-    let mut s = String::from(".intel_syntax noprefix\n");
-    s.push_str(".globl main\n");
-    s.push_str("main:\n");
+pub fn compile(input: &str) {
+    let tokens = token::tokenize(input);
+    let (top_node, _) = parse::expr(VecDeque::from(tokens));
 
-    let mut count = 0;
-    let val = &tokens[count].val.unwrap().to_string();
-    s.push_str(format!("  mov rax, {}\n", val).as_str());
-    count += 1;
+    let mut asm_str = String::new();
+    asm_str.push_str(".intel_syntax noprefix\n");
+    asm_str.push_str(".globl main\n");
+    asm_str.push_str("main:\n");
 
-    while count < tokens.len() {
-        let tok = &tokens[count];
+    asm_str.push_str(&stackmachine::gen(top_node));
 
-        match tok.kind {
-            token::TokenKind::Reserved => {
-                let op = tok.ch.unwrap();
-                count += 1;
-                let val = &tokens[count].val.unwrap().to_string();
-                if op == '+' {
-                    s.push_str(format!("  add rax, {}\n", val).as_str());
-                }
-                else if op == '-' {
-                    s.push_str(format!("  sub rax, {}\n", val).as_str());
-                }
-                count += 1;
-            },
-            token::TokenKind::Eof => break,
-            _ => panic!("invalid token kind"),
+    asm_str.push_str("  pop rax\n");
+    asm_str.push_str("  ret\n");
+
+    if let Ok(v) = File::create("./tmp.s") {
+        let mut file = v;
+        match file.write_all(asm_str.as_bytes()) {
+            Ok(()) => println!("success"),
+            Err(_) => println!("failure")
         }
     }
-
-    s.push_str("  ret\n");
-    return s;
 }

@@ -1,3 +1,4 @@
+#[derive(PartialEq)]
 pub enum TokenKind {
     Reserved,
     Num,
@@ -22,7 +23,7 @@ pub fn tokenize(src: &str) -> Vec<Token> {
             continue;
         }
 
-        if c == '+' || c == '-' {
+        if c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' {
             tokens.push(Token { kind: TokenKind::Reserved, val: None, ch: Some(c) });
             count += 1;
             continue;
