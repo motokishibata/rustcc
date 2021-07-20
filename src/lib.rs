@@ -19,7 +19,7 @@ mod tests {
     fn tokenize_test2() {
         let tokens = token::tokenize("1 +2");
         let tok = &tokens[1];
-        assert_eq!(Some('+'), tok.ch);
+        assert_eq!(Some("+"), tok.st);
     }
 
     #[test]
@@ -36,7 +36,7 @@ mod tests {
         let tok = &tokens[0];
         assert_eq!(Some(10), tok.val);
         let tok2 = &tokens[1];
-        assert_eq!(Some('+'), tok2.ch);
+        assert_eq!(Some("+"), tok2.st);
         let tok3 = &tokens[2];
         assert_eq!(Some(2), tok3.val);
     }

@@ -54,7 +54,7 @@ pub fn expr(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         }
 
         if token.kind == TokenKind::Reserved {
-            if token.ch.unwrap() == '+' {
+            if token.get_string() == "+" {
                 tokens.pop_front();
 
                 let ret = mul(tokens);
@@ -63,7 +63,7 @@ pub fn expr(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
                 node = new_node(NodeKind::Add, Some(node), Some(ret.0));
                 continue;
             }
-            else if token.ch.unwrap() == '-' {
+            else if token.get_string() == "-" {
                 tokens.pop_front();
 
                 let ret = mul(tokens);
@@ -89,7 +89,7 @@ pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         };
 
         if token.kind == TokenKind::Reserved {
-            if token.ch.unwrap() == '*' {
+            if token.get_string() == "*" {
                 tokens.pop_front();
                 let ret = unary(tokens);
                 tokens = ret.1;
@@ -97,7 +97,7 @@ pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
                 node = new_node(NodeKind::Mul, Some(node), Some(ret.0));
                 continue;
             }
-            else if token.ch.unwrap() == '/' {
+            else if token.get_string() == "/" {
                 tokens.pop_front();
 
                 let ret = unary(tokens);
@@ -120,11 +120,11 @@ pub fn unary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
     let token = tokens.front().unwrap();
 
     if token.kind == TokenKind::Reserved {
-        if token.ch.unwrap() == '+' {
+        if token.get_string() == "+" {
             tokens.pop_front();
             return primary(tokens);
         }
-        else if token.ch.unwrap() == '-' {
+        else if token.get_string() == "-" {
             tokens.pop_front();
             let _lhs = new_num_node(0);
 
@@ -144,7 +144,7 @@ pub fn primary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
     let mut que = VecDeque::from(tokens);
     let token = que.pop_front().unwrap();
     if token.kind == TokenKind::Reserved {
-        if token.ch.unwrap() == '(' {
+        if token.st.unwrap() == "(" {
             let (node, mut q) = expr(que);
             q.pop_front();
             return (node, q);

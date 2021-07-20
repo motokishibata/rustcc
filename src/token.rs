@@ -10,15 +10,24 @@ pub enum TokenKind {
 pub struct Token {
     pub kind: TokenKind,
     pub val: Option<i32>,
-    pub ch: Option<char>,
+    pub st: Option<String>,
     pub len: i32
 }
 
-pub fn new_token(kind: TokenKind, val: Option<i32>, s: Option<char>, len: i32) -> Token {
+impl Token {
+    pub fn get_string(&self) -> &str {
+        match &self.st {
+            Some(s) => return s,
+            None => return "",
+        };
+    }
+}
+
+pub fn new_token(kind: TokenKind, val: Option<i32>, st: Option<String>, len: i32) -> Token {
     return Token {
         kind: kind,
         val: val,
-        ch: s,
+        st: st,
         len: len
     };
 }
@@ -40,9 +49,10 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
             continue;
         }
 
-        if *ch == '+' || *ch == '-' || *ch == '*' || *ch == '/' || *ch == '(' || *ch == ')' {
-            let c = chars.pop_front().unwrap();
-            let token = new_token(TokenKind::Reserved, None, Some(c), 0);
+        if is_reserved(*ch) {
+            let (que, st, len) = lookahead_for_reserved(chars);
+            chars = que;
+            let token = new_token(TokenKind::Reserved, None, Some(st), len);
             tokens.push_back(token);
             continue;
         }
@@ -57,6 +67,9 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
 
         panic!("not support character");
     }
+
+    let eof = new_token(TokenKind::Eof, None, None, 0);
+    tokens.push_back(eof);
 
     return tokens;
 }
@@ -87,3 +100,32 @@ pub fn is_num(ch: char) -> bool {
     return 0 <= num && num <= 9;
 }
 
+pub fn lookahead_for_reserved(chars: VecDeque<char>) -> (VecDeque<char>, String, i32) {
+    let mut chars = chars;
+    let mut buf = String::new();
+
+    if let Some(c) = chars.front() {
+        if "+-*/()".contains(*c) {
+            let ch = chars.pop_front().unwrap();
+            buf.push(ch);
+        }
+        else if "=!<>".contains(*c) {
+            let ch = chars.pop_front().unwrap();
+            buf.push(ch);
+
+            if let Some(c) = chars.front() {
+                if 'c' == *c {
+                    let ch = chars.pop_front().unwrap();
+                    buf.push(ch);
+                }
+            }
+        }
+    }
+
+    let len = buf.len() as i32;
+    return (chars, buf, len);
+}
+
+pub fn is_reserved(ch: char) -> bool {
+    return "+-*/()=!<>".contains(ch);
+}
