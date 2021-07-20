@@ -1,12 +1,45 @@
 use super::parse::*;
 
-// 再帰も含め文字列を結合する必要あり。
+fn gen_lval(node: Node) -> String {
+    if node.kind != NodeKind::LVar {
+        panic!("node is not lvar");
+    }
+
+    let mut s = String::new();
+    s.push_str("  mov rax, rbp\n");
+    s.push_str(format!("  sub rax, {}\n", node.offset).as_str());
+    s.push_str("  push rax\n");
+    return s;
+}
+
 pub fn gen(node: Node) -> String {
     let mut s = String::new();
 
-    if node.kind == NodeKind::Num {
-        s.push_str(format!("  push {}\n", node.val).as_str());
-        return s;
+    match node.kind {
+        NodeKind::Num => {
+            s.push_str(format!("  push {}\n", node.val).as_str());
+            return s;
+        },
+        NodeKind::LVar => {
+            s.push_str(gen_lval(node).as_str());
+            s.push_str("  pop rax\n");
+            s.push_str("  mov rax, [rax]\n");
+            s.push_str("  push rax\n");
+            return s;
+        },
+        NodeKind::Assign => {
+            let lhs = (*node.lhs).unwrap();
+            s.push_str(gen_lval(lhs).as_str());
+            let rhs = (*node.rhs).unwrap();
+            s.push_str(gen(rhs).as_str());
+
+            s.push_str("  pop rdi\n");
+            s.push_str("  pop rax\n");
+            s.push_str("  mov [rax], rdi\n");
+            s.push_str("  push rdi\n");
+            return s;
+        },
+        _ => {}
     }
 
     let lhs = (*node.lhs).unwrap();

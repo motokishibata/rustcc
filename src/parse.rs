@@ -13,6 +13,8 @@ pub enum NodeKind {
     Ne,     // !=
     Le,     // <=
     Lt,     // <
+    Assign, // =
+    LVar,   // ローカル変数
 }
 
 pub struct Node {
@@ -20,6 +22,7 @@ pub struct Node {
     pub lhs: Box<Option<Node>>,
     pub rhs: Box<Option<Node>>,
     pub val: isize,
+    pub offset: isize,
 }
 
 fn new_node(kind: NodeKind, lhs: Option<Node>, rhs: Option<Node>) -> Node {
@@ -27,7 +30,8 @@ fn new_node(kind: NodeKind, lhs: Option<Node>, rhs: Option<Node>) -> Node {
         kind: kind,
         lhs: Box::new(lhs),
         rhs: Box::new(rhs),
-        val: 0
+        val: 0,
+        offset: 0,
     };
 }
 
@@ -37,12 +41,66 @@ fn new_num_node(val: isize) -> Node {
         lhs: Box::new(None),
         rhs: Box::new(None),
         val: val,
+        offset: 0,
     };
+}
+
+// program = stmt*
+pub fn program(tokens: VecDeque<Token>) -> Node {
+    let (mut node, mut tokens) = stmt(tokens);
+
+    loop {
+        match tokens.front() {
+            Some(tk) => {
+                if tk.kind == TokenKind::Eof {
+                    break;
+                }
+            },
+            None => panic!("not found eof token"),
+        }
+
+        let ret = stmt(tokens);
+        node = ret.0;
+        tokens = ret.1;
+    }
+
+    return node;
+}
+
+// stmt = expr ";"
+pub fn stmt(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
+    let (node, mut tokens) = expr(tokens);
+
+    if let Some(tk) = tokens.front() {
+        if tk.st != Some(";".to_string()) {
+            panic!("require ;");
+        }
+        tokens.pop_front();
+    }
+
+    return (node, tokens);
 }
 
 // expr = equality
 pub fn expr(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    return equality(tokens);
+    return assign(tokens);
+}
+
+// assign = equality ("=" assign)?
+pub fn assign(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
+    let (mut node, mut tokens) = equality(tokens);
+
+    if let Some(tk) = tokens.front() {
+        if tk.get_string() == "=" {
+            tokens.pop_front();
+            let ret = assign(tokens);
+            tokens = ret.1;
+
+            node = new_node(NodeKind::Assign, Some(node), Some(ret.0));
+        }
+    }
+
+    return (node, tokens);
 }
 
 // equality = relational ("==" relational | "!=" relational)*
@@ -200,7 +258,7 @@ pub fn unary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
     return primary(tokens);
 }
 
-// primary = num | "(" expr ")"
+// primary = num | ident | "(" expr ")"
 pub fn primary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
     let mut tokens = tokens;
     let token = tokens.pop_front().unwrap();
@@ -212,6 +270,20 @@ pub fn primary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
             return (node, q);
         }
         panic!("not support operation");
+    }
+
+    if token.kind == TokenKind::Ident {
+        let ident = token.st.unwrap();
+        let ch = ident.chars().nth(0).unwrap();
+        let offset = (((ch as i32) - ('a' as i32) + 1) * 8) as isize;
+        let node = Node {
+            kind: NodeKind::LVar,
+            lhs: Box::new(None),
+            rhs: Box::new(None),
+            val: 0,
+            offset: offset
+        };
+        return (node, tokens);
     }
     
     let node = new_num_node(token.val.unwrap() as isize);

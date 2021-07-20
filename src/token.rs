@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 #[derive(PartialEq)]
 pub enum TokenKind {
     Reserved,
+    Ident,
     Num,
     Eof
 }
@@ -57,10 +58,17 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
             continue;
         }
         
-        if is_num(*ch) {
+        if ch.is_numeric() {
             let (que, num, len) = lookahead_for_num(chars);
             chars = que;
             let token = new_token(TokenKind::Num, Some(num), None, len);
+            tokens.push_back(token);
+            continue;
+        }
+
+        if ch.is_ascii_alphabetic() {
+            let ch = chars.pop_front().unwrap().to_string();
+            let token = new_token(TokenKind::Ident, None, Some(ch), 1);
             tokens.push_back(token);
             continue;
         }
@@ -105,7 +113,7 @@ pub fn lookahead_for_reserved(chars: VecDeque<char>) -> (VecDeque<char>, String,
     let mut buf = String::new();
 
     if let Some(c) = chars.front() {
-        if "+-*/()".contains(*c) {
+        if "+-*/();".contains(*c) {
             let ch = chars.pop_front().unwrap();
             buf.push(ch);
         }
@@ -127,5 +135,5 @@ pub fn lookahead_for_reserved(chars: VecDeque<char>) -> (VecDeque<char>, String,
 }
 
 pub fn is_reserved(ch: char) -> bool {
-    return "+-*/()=!<>".contains(ch);
+    return "+-*/()=!<>;".contains(ch);
 }

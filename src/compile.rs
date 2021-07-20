@@ -13,16 +13,28 @@ pub fn compile(input: &str) {
     }
     
     let tokens = token::tokenize(input);
-    let (top_node, _) = parse::expr(tokens);
+    let top_node = parse::program(tokens);
 
     let mut asm_str = String::new();
     asm_str.push_str(".intel_syntax noprefix\n");
     asm_str.push_str(".globl main\n");
     asm_str.push_str("main:\n");
 
-    asm_str.push_str(&stackmachine::gen(top_node));
+    // プロローグ
+    // 変数26個分の領域を確保する
+    asm_str.push_str("  push rbp\n");
+    asm_str.push_str("  mov rbp, rsp\n");
+    asm_str.push_str("  sub rsp, 208\n");
 
+    //todo:複数回の呼び出しに対応？
+    asm_str.push_str(&stackmachine::gen(top_node));
     asm_str.push_str("  pop rax\n");
+
+    // エピローグ
+    // 最後の式の結果がRAXに残っているのでそれが返り値になる
+    
+    asm_str.push_str("  mov rsp, rbp\n");
+    asm_str.push_str("  pop rbp\n");
     asm_str.push_str("  ret\n");
 
     println!("{}", asm_str);
