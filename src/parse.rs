@@ -9,6 +9,10 @@ pub enum NodeKind {
     Mul,
     Div,
     Num,
+    Eq,     // ==
+    Ne,     // !=
+    Le,     // <=
+    Lt,     // <
 }
 
 pub struct Node {
@@ -36,79 +40,136 @@ fn new_num_node(val: isize) -> Node {
     };
 }
 
-// expr = mul ("+" mul | "-" mul)*
+// expr = equality
 pub fn expr(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let mut tokens = tokens;
+    return equality(tokens);
+}
 
-    let ret = mul(tokens);
-    let mut node = ret.0;
-    tokens = ret.1;
+// equality = relational ("==" relational | "!=" relational)*
+pub fn equality(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
+    let (mut node, mut tokens) = relational(tokens);
 
     loop {
         let token = match tokens.front() {
-            Some(tk) => tk,
+            Some(tk) => {
+                if tk.kind == TokenKind::Eof || tk.kind != TokenKind::Reserved {
+                    break;
+                }
+                tk
+            },
             None => break,
         };
-        if token.kind == TokenKind::Eof {
-            break;
-        }
 
-        if token.kind == TokenKind::Reserved {
-            if token.get_string() == "+" {
-                tokens.pop_front();
+        let nodekind = match token.get_string() {
+            "==" => NodeKind::Eq,
+            "!=" => NodeKind::Ne,
+            _ => break,
+        };
 
-                let ret = mul(tokens);
-                tokens = ret.1;
+        tokens.pop_front();
+        let ret = relational(tokens);
+        tokens = ret.1;
 
-                node = new_node(NodeKind::Add, Some(node), Some(ret.0));
-                continue;
-            }
-            else if token.get_string() == "-" {
-                tokens.pop_front();
-
-                let ret = mul(tokens);
-                tokens = ret.1;
-
-                node = new_node(NodeKind::Sub, Some(node), Some(ret.0));
-                continue;
-            }
-        }
-        break;
+        node = new_node(nodekind, Some(node), Some(ret.0));
     }
 
     return (node, tokens);
 }
+
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+pub fn relational(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
+    let (mut node, mut tokens) = add(tokens);
+
+    loop {
+        let token = match tokens.front() {
+            Some(tk) => {
+                if tk.kind != TokenKind::Reserved {
+                    break;
+                }
+                tk
+            },
+            None => break,
+        };
+
+        let (nodekind, switch) = match token.get_string() {
+            "<" => (NodeKind::Lt, false),
+            "<=" => (NodeKind::Le, false),
+            ">" => (NodeKind::Lt, true),
+            ">=" => (NodeKind::Le, true),
+            _ => break,
+        };
+
+        tokens.pop_front();
+        let ret = add(tokens);
+        tokens = ret.1;
+
+        if switch {
+            node = new_node(nodekind, Some(ret.0), Some(node));
+        } else {
+            node = new_node(nodekind, Some(node), Some(ret.0));
+        }
+    }
+
+    return (node, tokens);
+}
+
+// add = mul ("+" mul | "-" mul)*
+pub fn add(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
+    let (mut node, mut tokens) = mul(tokens);
+
+    loop {
+        let token = match tokens.front() {
+            Some(tk) => {
+                if tk.kind != TokenKind::Reserved {
+                    break;
+                }
+                tk
+            },
+            None => break,
+        };
+
+        let nodekind = match token.get_string() {
+            "+" => NodeKind::Add,
+            "-" => NodeKind::Sub,
+            _ => break,
+        };
+
+        tokens.pop_front();
+        let ret = mul(tokens);
+        tokens = ret.1;
+
+        node = new_node(nodekind, Some(node), Some(ret.0));
+    }
+
+    return (node, tokens);
+}
+
 // mul = unary ("*" unary | "/" unary)*
 pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
     let (mut node, mut tokens) = unary(tokens);
 
     loop {
         let token = match tokens.front() {
-            Some(tk) => tk,
+            Some(tk) => {
+                if tk.kind != TokenKind::Reserved {
+                    break;
+                }
+                tk
+            },
             None => break,
         };
 
-        if token.kind == TokenKind::Reserved {
-            if token.get_string() == "*" {
-                tokens.pop_front();
-                let ret = unary(tokens);
-                tokens = ret.1;
+        let nodekind = match token.get_string() {
+            "*" => NodeKind::Mul,
+            "/" => NodeKind::Div,
+            _ => break,
+        };
 
-                node = new_node(NodeKind::Mul, Some(node), Some(ret.0));
-                continue;
-            }
-            else if token.get_string() == "/" {
-                tokens.pop_front();
+        tokens.pop_front();
+        let ret = unary(tokens);
+        tokens = ret.1;
 
-                let ret = unary(tokens);
-                tokens = ret.1;
-    
-                node = new_node(NodeKind::Div, Some(node), Some(ret.0));
-                continue;
-            }
-        }
-
-        break;
+        node = new_node(nodekind, Some(node), Some(ret.0));
     }
 
     return (node, tokens);
@@ -141,11 +202,12 @@ pub fn unary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
 
 // primary = num | "(" expr ")"
 pub fn primary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let mut que = VecDeque::from(tokens);
-    let token = que.pop_front().unwrap();
+    let mut tokens = tokens;
+    let token = tokens.pop_front().unwrap();
+
     if token.kind == TokenKind::Reserved {
-        if token.st.unwrap() == "(" {
-            let (node, mut q) = expr(que);
+        if token.get_string() == "(" {
+            let (node, mut q) = expr(tokens);
             q.pop_front();
             return (node, q);
         }
@@ -153,5 +215,5 @@ pub fn primary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
     }
     
     let node = new_num_node(token.val.unwrap() as isize);
-    return (node, que);
+    return (node, tokens);
 }

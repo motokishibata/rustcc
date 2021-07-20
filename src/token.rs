@@ -114,7 +114,7 @@ pub fn lookahead_for_reserved(chars: VecDeque<char>) -> (VecDeque<char>, String,
             buf.push(ch);
 
             if let Some(c) = chars.front() {
-                if 'c' == *c {
+                if '=' == *c {
                     let ch = chars.pop_front().unwrap();
                     buf.push(ch);
                 }

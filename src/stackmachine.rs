@@ -25,6 +25,26 @@ pub fn gen(node: Node) -> String {
             s.push_str("  cqo\n");
             s.push_str("  idiv rdi\n");
         },
+        NodeKind::Eq => {
+            s.push_str("  cmp rax, rdi\n");
+            s.push_str("  sete al\n");
+            s.push_str("  movzb rax, al\n");
+        },
+        NodeKind::Ne => {
+            s.push_str("  cmp rax, rdi\n");
+            s.push_str("  setne al\n");
+            s.push_str("  movzb rax, al\n");
+        },
+        NodeKind::Lt => {
+            s.push_str("  cmp rax, rdi\n");
+            s.push_str("  setl al\n");
+            s.push_str("  movzb rax, al\n");
+        },
+        NodeKind::Le => {
+            s.push_str("  cmp rax, rdi\n");
+            s.push_str("  setle al\n");
+            s.push_str("  movzb rax, al\n");
+        }
         _ => panic!("num is not support"),
     }
 
