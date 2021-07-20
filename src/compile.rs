@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::io::Write;
 use std::fs::File;
 
@@ -14,7 +13,7 @@ pub fn compile(input: &str) {
     }
     
     let tokens = token::tokenize(input);
-    let (top_node, _) = parse::expr(VecDeque::from(tokens));
+    let (top_node, _) = parse::expr(tokens);
 
     let mut asm_str = String::new();
     asm_str.push_str(".intel_syntax noprefix\n");
