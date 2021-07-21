@@ -67,8 +67,9 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
         }
 
         if ch.is_ascii_alphabetic() {
-            let ch = chars.pop_front().unwrap().to_string();
-            let token = new_token(TokenKind::Ident, None, Some(ch), 1);
+            let (que, st, len) = lookahead_for_ident(chars);
+            chars = que;
+            let token = new_token(TokenKind::Ident, None, Some(st), len);
             tokens.push_back(token);
             continue;
         }
@@ -136,4 +137,20 @@ pub fn lookahead_for_reserved(chars: VecDeque<char>) -> (VecDeque<char>, String,
 
 pub fn is_reserved(ch: char) -> bool {
     return "+-*/()=!<>;".contains(ch);
+}
+
+pub fn lookahead_for_ident(chars: VecDeque<char>) -> (VecDeque<char>, String, i32) {
+    let mut chars = chars;
+    let mut buf = String::new();
+
+    while let Some(c) = chars.front() {
+        if !c.is_ascii_alphabetic() {
+            break;
+        }
+        let ch = chars.pop_front().unwrap();
+        buf.push(ch);
+    }
+
+    let len = buf.len() as i32;
+    return (chars, buf, len);
 }

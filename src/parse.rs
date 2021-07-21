@@ -45,10 +45,26 @@ fn new_num_node(val: isize) -> Node {
     };
 }
 
+pub struct LVar {
+    pub name: String,
+    pub len: i32,
+    pub offset: i32,
+}
+
+pub fn find_lvar(tok: Token, locals: &Vec<LVar>) -> Option<&LVar> {
+    for var in locals {
+        if var.len == tok.len && var.name == tok.get_string() {
+            return Some(var);
+        }
+    }
+    return None;
+}
+
 // program = stmt*
 pub fn program(tokens: VecDeque<Token>) -> Vec<Node> {
     let mut code: Vec<Node> = Vec::new();
-    let (mut node, mut tokens) = stmt(tokens);
+    let locals: Vec<LVar> = Vec::new();
+    let (mut node, mut tokens, mut locals) = stmt(tokens, locals);
     code.push(node);
 
     loop {
@@ -61,9 +77,10 @@ pub fn program(tokens: VecDeque<Token>) -> Vec<Node> {
             None => panic!("not found eof token"),
         }
 
-        let ret = stmt(tokens);
+        let ret = stmt(tokens, locals);
         node = ret.0;
         tokens = ret.1;
+        locals = ret.2;
         code.push(node);
     }
 
@@ -71,8 +88,8 @@ pub fn program(tokens: VecDeque<Token>) -> Vec<Node> {
 }
 
 // stmt = expr ";"
-pub fn stmt(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let (node, mut tokens) = expr(tokens);
+pub fn stmt(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
+    let (node, mut tokens, locals) = expr(tokens, locals);
 
     if let Some(tk) = tokens.front() {
         if tk.st != Some(";".to_string()) {
@@ -81,34 +98,35 @@ pub fn stmt(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         tokens.pop_front();
     }
 
-    return (node, tokens);
+    return (node, tokens, locals);
 }
 
 // expr = equality
-pub fn expr(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    return assign(tokens);
+pub fn expr(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
+    return assign(tokens, locals);
 }
 
 // assign = equality ("=" assign)?
-pub fn assign(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let (mut node, mut tokens) = equality(tokens);
+pub fn assign(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
+    let (mut node, mut tokens, mut locals) = equality(tokens, locals);
 
     if let Some(tk) = tokens.front() {
         if tk.get_string() == "=" {
             tokens.pop_front();
-            let ret = assign(tokens);
+            let ret = assign(tokens, locals);
             tokens = ret.1;
+            locals = ret.2;
 
             node = new_node(NodeKind::Assign, Some(node), Some(ret.0));
         }
     }
 
-    return (node, tokens);
+    return (node, tokens, locals);
 }
 
 // equality = relational ("==" relational | "!=" relational)*
-pub fn equality(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let (mut node, mut tokens) = relational(tokens);
+pub fn equality(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
+    let (mut node, mut tokens, mut locals) = relational(tokens, locals);
 
     loop {
         let token = match tokens.front() {
@@ -128,18 +146,19 @@ pub fn equality(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         };
 
         tokens.pop_front();
-        let ret = relational(tokens);
+        let ret = relational(tokens, locals);
         tokens = ret.1;
+        locals = ret.2;
 
         node = new_node(nodekind, Some(node), Some(ret.0));
     }
 
-    return (node, tokens);
+    return (node, tokens, locals);
 }
 
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
-pub fn relational(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let (mut node, mut tokens) = add(tokens);
+pub fn relational(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
+    let (mut node, mut tokens, mut locals) = add(tokens, locals);
 
     loop {
         let token = match tokens.front() {
@@ -161,8 +180,9 @@ pub fn relational(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         };
 
         tokens.pop_front();
-        let ret = add(tokens);
+        let ret = add(tokens, locals);
         tokens = ret.1;
+        locals = ret.2;
 
         if switch {
             node = new_node(nodekind, Some(ret.0), Some(node));
@@ -171,12 +191,12 @@ pub fn relational(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         }
     }
 
-    return (node, tokens);
+    return (node, tokens, locals);
 }
 
 // add = mul ("+" mul | "-" mul)*
-pub fn add(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let (mut node, mut tokens) = mul(tokens);
+pub fn add(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
+    let (mut node, mut tokens, mut locals) = mul(tokens, locals);
 
     loop {
         let token = match tokens.front() {
@@ -196,18 +216,19 @@ pub fn add(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         };
 
         tokens.pop_front();
-        let ret = mul(tokens);
+        let ret = mul(tokens, locals);
         tokens = ret.1;
+        locals = ret.2;
 
         node = new_node(nodekind, Some(node), Some(ret.0));
     }
 
-    return (node, tokens);
+    return (node, tokens, locals);
 }
 
 // mul = unary ("*" unary | "/" unary)*
-pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
-    let (mut node, mut tokens) = unary(tokens);
+pub fn mul(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
+    let (mut node, mut tokens, mut locals) = unary(tokens, locals);
 
     loop {
         let token = match tokens.front() {
@@ -227,68 +248,92 @@ pub fn mul(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
         };
 
         tokens.pop_front();
-        let ret = unary(tokens);
+        let ret = unary(tokens, locals);
         tokens = ret.1;
+        locals = ret.2;
 
         node = new_node(nodekind, Some(node), Some(ret.0));
     }
 
-    return (node, tokens);
+    return (node, tokens, locals);
 }
 
 // unary = ("+" | "-")? primary
-pub fn unary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
+pub fn unary(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
     let mut tokens = tokens;
+    let mut locals = locals;
     let token = tokens.front().unwrap();
 
     if token.kind == TokenKind::Reserved {
         if token.get_string() == "+" {
             tokens.pop_front();
-            return primary(tokens);
+            return primary(tokens, locals);
         }
         else if token.get_string() == "-" {
             tokens.pop_front();
             let _lhs = new_num_node(0);
 
-            let ret = primary(tokens);
+            let ret = primary(tokens, locals);
             tokens = ret.1;
+            locals = ret.2;
 
             let node = new_node(NodeKind::Sub, Some(_lhs), Some(ret.0));
-            return (node, tokens);
+            return (node, tokens, locals);
         }
     }
 
-    return primary(tokens);
+    return primary(tokens, locals);
 }
 
 // primary = num | ident | "(" expr ")"
-pub fn primary(tokens: VecDeque<Token>) -> (Node, VecDeque<Token>) {
+pub fn primary(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
     let mut tokens = tokens;
+    let mut locals = locals;
     let token = tokens.pop_front().unwrap();
 
     if token.kind == TokenKind::Reserved {
         if token.get_string() == "(" {
-            let (node, mut q) = expr(tokens);
-            q.pop_front();
-            return (node, q);
+            let (node, mut tokens, locals) = expr(tokens, locals);
+            tokens.pop_front();
+            return (node, tokens, locals);
         }
         panic!("not support operation");
     }
 
     if token.kind == TokenKind::Ident {
-        let ident = token.st.unwrap();
-        let ch = ident.chars().nth(0).unwrap();
-        let offset = (((ch as i32) - ('a' as i32) + 1) * 8) as isize;
+        let len = token.len;
+        let name = token.get_string().to_string();
+        let lvar = find_lvar(token, &locals);
+
+        let offset = match lvar {
+            Some(v) => v.offset,
+            None => {
+                let current_lvar = locals.last();
+                let offset = match current_lvar {
+                    Some(v) => v.offset + 8,
+                    None => 8
+                };
+                let new_lvar = LVar {
+                    name: name,
+                    len: len,
+                    offset: offset
+                };
+                locals.push(new_lvar);
+                offset
+            }
+        };
+
         let node = Node {
             kind: NodeKind::LVar,
             lhs: Box::new(None),
             rhs: Box::new(None),
             val: 0,
-            offset: offset
+            offset: offset as isize
         };
-        return (node, tokens);
+
+        return (node, tokens, locals);
     }
     
     let node = new_num_node(token.val.unwrap() as isize);
-    return (node, tokens);
+    return (node, tokens, locals);
 }
