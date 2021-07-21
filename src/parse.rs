@@ -46,8 +46,10 @@ fn new_num_node(val: isize) -> Node {
 }
 
 // program = stmt*
-pub fn program(tokens: VecDeque<Token>) -> Node {
+pub fn program(tokens: VecDeque<Token>) -> Vec<Node> {
+    let mut code: Vec<Node> = Vec::new();
     let (mut node, mut tokens) = stmt(tokens);
+    code.push(node);
 
     loop {
         match tokens.front() {
@@ -62,9 +64,10 @@ pub fn program(tokens: VecDeque<Token>) -> Node {
         let ret = stmt(tokens);
         node = ret.0;
         tokens = ret.1;
+        code.push(node);
     }
 
-    return node;
+    return code;
 }
 
 // stmt = expr ";"

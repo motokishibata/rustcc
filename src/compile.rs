@@ -13,7 +13,7 @@ pub fn compile(input: &str) {
     }
     
     let tokens = token::tokenize(input);
-    let top_node = parse::program(tokens);
+    let code = parse::program(tokens);
 
     let mut asm_str = String::new();
     asm_str.push_str(".intel_syntax noprefix\n");
@@ -27,8 +27,10 @@ pub fn compile(input: &str) {
     asm_str.push_str("  sub rsp, 208\n");
 
     //todo:複数回の呼び出しに対応？
-    asm_str.push_str(&stackmachine::gen(top_node));
-    asm_str.push_str("  pop rax\n");
+    for node in code {
+        asm_str.push_str(&stackmachine::gen(node));
+        asm_str.push_str("  pop rax\n");
+    }
 
     // エピローグ
     // 最後の式の結果がRAXに残っているのでそれが返り値になる
