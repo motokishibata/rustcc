@@ -52,4 +52,8 @@ assert 0 '1>=2;'
 assert 5 "a=5;"
 assert 10 "a=7;b=3;a+b;"
 
+assert 1 "return 1;"
+assert 1 "return_x = 1;"
+assert 3 "return_x = 1; return_y = 2; return return_x+return_y;"
+
 echo OK

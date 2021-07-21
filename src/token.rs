@@ -5,6 +5,7 @@ pub enum TokenKind {
     Reserved,
     Ident,
     Num,
+    Return,
     Eof
 }
 
@@ -62,6 +63,15 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
             let (que, num, len) = lookahead_for_num(chars);
             chars = que;
             let token = new_token(TokenKind::Num, Some(num), None, len);
+            tokens.push_back(token);
+            continue;
+        }
+
+        if is_return(&chars) {
+            for _ in 0..6 {
+                chars.pop_front();
+            }
+            let token = new_token(TokenKind::Return, None, None, 6);
             tokens.push_back(token);
             continue;
         }
@@ -144,7 +154,7 @@ pub fn lookahead_for_ident(chars: VecDeque<char>) -> (VecDeque<char>, String, i3
     let mut buf = String::new();
 
     while let Some(c) = chars.front() {
-        if !c.is_ascii_alphabetic() {
+        if !c.is_ascii_alphabetic() && !(*c == '_') {
             break;
         }
         let ch = chars.pop_front().unwrap();
@@ -153,4 +163,26 @@ pub fn lookahead_for_ident(chars: VecDeque<char>) -> (VecDeque<char>, String, i3
 
     let len = buf.len() as i32;
     return (chars, buf, len);
+}
+
+fn is_return(chars: &VecDeque<char>) -> bool {
+    if chars.len() < 6 {
+        return false;
+    }
+
+    let mut r = VecDeque::from(vec!['r','e','t','u','r','n']);
+    
+    for ch in chars {
+        if r.is_empty() {
+            return !ch.is_ascii_alphanumeric() && *ch != '_';
+        }
+
+        if let Some(c) = r.pop_front() {
+            if c != *ch {
+                return false;
+            }
+        }
+    }
+
+    return false;
 }

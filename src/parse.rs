@@ -15,6 +15,7 @@ pub enum NodeKind {
     Lt,     // <
     Assign, // =
     LVar,   // ローカル変数
+    Return, // return
 }
 
 pub struct Node {
@@ -87,15 +88,29 @@ pub fn program(tokens: VecDeque<Token>) -> Vec<Node> {
     return code;
 }
 
-// stmt = expr ";"
+// stmt = expr ";" | "return" expr ";"
 pub fn stmt(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    let (node, mut tokens, locals) = expr(tokens, locals);
+    let node: Node;
+    let mut tokens = tokens;
+    let mut locals = locals;
+    let token = tokens.front().unwrap();
 
-    if let Some(tk) = tokens.front() {
-        if tk.st != Some(";".to_string()) {
-            panic!("require ;");
-        }
+    if token.kind == TokenKind::Return {
         tokens.pop_front();
+        let ret = expr(tokens, locals);
+        node = new_node(NodeKind::Return, Some(ret.0), None);
+        tokens = ret.1;
+        locals = ret.2;
+    } else {
+        let ret = expr(tokens, locals);
+        node = ret.0;
+        tokens = ret.1;
+        locals = ret.2;
+    }
+
+    let token = tokens.pop_front().unwrap();
+    if token.st != Some(";".to_string()) {
+        panic!("require ;");
     }
 
     return (node, tokens, locals);
