@@ -12,11 +12,39 @@ fn gen_lval(node: Node) -> String {
     return s;
 }
 
-pub fn gen(node: Node) -> String {
+pub fn gen(code: Vec<Node>) -> String {
+    let mut asm = String::new();
+    asm.push_str(".intel_syntax noprefix\n");
+    asm.push_str(".globl main\n");
+    asm.push_str("main:\n");
+
+    // プロローグ
+    // 変数26個分の領域を確保する
+    asm.push_str("  push rbp\n");
+    asm.push_str("  mov rbp, rsp\n");
+    asm.push_str("  sub rsp, 208\n");
+
+    //todo:複数回の呼び出しに対応？
+    for node in code {
+        asm.push_str(&gen_op(node));
+        asm.push_str("  pop rax\n");
+    }
+
+    // エピローグ
+    // 最後の式の結果がRAXに残っているのでそれが返り値になる
+    
+    asm.push_str("  mov rsp, rbp\n");
+    asm.push_str("  pop rbp\n");
+    asm.push_str("  ret\n");
+
+    return asm;
+}
+
+fn gen_op(node: Node) -> String {
     let mut s = String::new();
     if node.kind == NodeKind::Return {
         let lhs = (*node.lhs).unwrap();
-        s.push_str(gen(lhs).as_str());
+        s.push_str(gen_op(lhs).as_str());
         s.push_str("  pop rax\n");
         s.push_str("  mov rsp, rbp\n");
         s.push_str("  pop rbp\n");
@@ -40,7 +68,7 @@ pub fn gen(node: Node) -> String {
             let lhs = (*node.lhs).unwrap();
             s.push_str(gen_lval(lhs).as_str());
             let rhs = (*node.rhs).unwrap();
-            s.push_str(gen(rhs).as_str());
+            s.push_str(gen_op(rhs).as_str());
 
             s.push_str("  pop rdi\n");
             s.push_str("  pop rax\n");
@@ -52,9 +80,9 @@ pub fn gen(node: Node) -> String {
     }
 
     let lhs = (*node.lhs).unwrap();
-    let s = s + &gen(lhs);
+    let s = s + &gen_op(lhs);
     let rhs = (*node.rhs).unwrap();
-    let mut s = s + &gen(rhs);
+    let mut s = s + &gen_op(rhs);
 
     s.push_str("  pop rdi\n");
     s.push_str("  pop rax\n");
@@ -91,5 +119,6 @@ pub fn gen(node: Node) -> String {
     }
 
     s.push_str("  push rax\n");
-    return s;
+
+    s
 }

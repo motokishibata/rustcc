@@ -1,11 +1,8 @@
 pub mod token;
 pub mod parse;
-pub mod stackmachine;
-pub mod compile;
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
     use super::*;
 
     #[test]
