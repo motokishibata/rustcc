@@ -6,6 +6,10 @@ mod token;
 mod parse;
 mod gen;
 
+use token::*;
+use parse::*;
+use gen::*;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
@@ -19,9 +23,9 @@ fn main() {
         input = &input[1..];
     }
     
-    let tokens = token::tokenize(input);
-    let code = parse::program(tokens);
-    let asm = gen::gen(code);
+    let tokens = tokenize(input);
+    let code = program(tokens);
+    let asm = gen(code);
 
     println!("{}", asm);
 

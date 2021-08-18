@@ -23,15 +23,15 @@ impl Token {
             None => return "",
         };
     }
-}
 
-pub fn new_token(kind: TokenKind, val: Option<i32>, st: Option<String>, len: i32) -> Token {
-    return Token {
-        kind: kind,
-        val: val,
-        st: st,
-        len: len
-    };
+    pub fn new(kind: TokenKind, val: Option<i32>, st: Option<String>, len: i32) -> Token {
+        return Token {
+            kind: kind,
+            val: val,
+            st: st,
+            len: len
+        };
+    }
 }
 
 pub fn tokenize(src: &str) -> VecDeque<Token> {
@@ -54,7 +54,7 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
         if is_reserved(*ch) {
             let (que, st, len) = lookahead_for_reserved(chars);
             chars = que;
-            let token = new_token(TokenKind::Reserved, None, Some(st), len);
+            let token = Token::new(TokenKind::Reserved, None, Some(st), len);
             tokens.push_back(token);
             continue;
         }
@@ -62,7 +62,7 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
         if ch.is_numeric() {
             let (que, num, len) = lookahead_for_num(chars);
             chars = que;
-            let token = new_token(TokenKind::Num, Some(num), None, len);
+            let token = Token::new(TokenKind::Num, Some(num), None, len);
             tokens.push_back(token);
             continue;
         }
@@ -71,7 +71,7 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
             for _ in 0..6 {
                 chars.pop_front();
             }
-            let token = new_token(TokenKind::Return, None, None, 6);
+            let token = Token::new(TokenKind::Return, None, None, 6);
             tokens.push_back(token);
             continue;
         }
@@ -79,7 +79,7 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
         if ch.is_ascii_alphabetic() {
             let (que, st, len) = lookahead_for_ident(chars);
             chars = que;
-            let token = new_token(TokenKind::Ident, None, Some(st), len);
+            let token = Token::new(TokenKind::Ident, None, Some(st), len);
             tokens.push_back(token);
             continue;
         }
@@ -87,7 +87,7 @@ pub fn tokenize(src: &str) -> VecDeque<Token> {
         panic!("not support character");
     }
 
-    let eof = new_token(TokenKind::Eof, None, None, 0);
+    let eof = Token::new(TokenKind::Eof, None, None, 0);
     tokens.push_back(eof);
 
     return tokens;
