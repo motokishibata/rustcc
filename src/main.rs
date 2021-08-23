@@ -1,3 +1,6 @@
+extern crate rustcc;
+use rustcc::*;
+
 use std::env;
 use std::io::Write;
 use std::fs::File;
@@ -5,10 +8,16 @@ use std::fs::File;
 mod token;
 mod parse;
 mod gen;
+mod token2;
+mod parse2;
+mod gen2;
 
-use token::*;
-use parse::*;
-use gen::*;
+// use token::*;
+// use parse::*;
+// use gen::*;
+use token2::*;
+use parse2::*;
+use gen2::*;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -22,10 +31,14 @@ fn main() {
     if first == "^" {
         input = &input[1..];
     }
-    
+
     let tokens = tokenize(input);
-    let code = program(tokens);
-    let asm = gen(code);
+    let nodes = parse(&tokens);
+    let asm = gen_x86(nodes);
+    
+    // let tokens = tokenize(input);
+    // let code = program(tokens);
+    // let asm = gen(code);
 
     println!("{}", asm);
 

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-#[derive(PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     Reserved,
     Ident,
@@ -9,6 +9,7 @@ pub enum TokenKind {
     Eof
 }
 
+#[derive(Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub val: Option<i32>,

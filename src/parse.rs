@@ -116,7 +116,7 @@ pub fn stmt(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token
     return (node, tokens, locals);
 }
 
-// expr = equality
+// expr = assign
 pub fn expr(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
     return assign(tokens, locals);
 }
