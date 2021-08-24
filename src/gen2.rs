@@ -102,6 +102,8 @@ fn gen_equality(node: NodeType) -> String {
             s.push_str(&gen_relational(*r1));
             for (op, rel) in r2 {
                 s.push_str(&gen_relational(rel));
+                s.push_str("  pop rdi\n");
+                s.push_str("  pop rax\n");
                 match op {
                     NodeType::Eq => {
                         s.push_str("  cmp rax, rdi\n");
@@ -115,6 +117,7 @@ fn gen_equality(node: NodeType) -> String {
                     },
                     _ => {}
                 }
+                s.push_str("  push rax\n");
             }
         },
         _ => {}
@@ -129,6 +132,8 @@ fn gen_relational(node: NodeType) -> String {
             s.push_str(&gen_add(*add1));
             for (op, add) in add2 {
                 s.push_str(&gen_add(add));
+                s.push_str("  pop rdi\n");
+                s.push_str("  pop rax\n");
                 match op {
                     NodeType::Lt => {
                         s.push_str("  cmp rax, rdi\n");
@@ -152,6 +157,7 @@ fn gen_relational(node: NodeType) -> String {
                     },
                     _ => {}
                 }
+                s.push_str("  push rax\n");
             }
         },
         _ => {}
@@ -166,11 +172,14 @@ fn gen_add(node: NodeType) -> String {
             s.push_str(&gen_mul(*mul1));
             for (op, mul) in mul2 {
                 s.push_str(&gen_mul(mul));
+                s.push_str("  pop rdi\n");
+                s.push_str("  pop rax\n");
                 match op {
                     NodeType::Plus => s.push_str("  add rax, rdi\n"),
                     NodeType::Minus => s.push_str("  sub rax, rdi\n"),
                     _ => {}
                 }
+                s.push_str("  push rax\n");
             }
         },
         _ => {}
@@ -185,6 +194,8 @@ fn gen_mul(node: NodeType) -> String {
             s.push_str(&gen_unary(*u1));
             for (op, unary) in u2 {
                 s.push_str(&gen_unary(unary));
+                s.push_str("  pop rdi\n");
+                s.push_str("  pop rax\n");
                 match op {
                     NodeType::Mul => s.push_str("  imul rax, rdi\n"),
                     NodeType::Div => {
@@ -193,6 +204,7 @@ fn gen_mul(node: NodeType) -> String {
                     },
                     _ => {}
                 }
+                s.push_str("  push rax\n");
             }
         },
         _ => {}
@@ -211,6 +223,7 @@ fn gen_unary(node: NodeType) -> String {
                     s.push_str("  pop rax\n");
                     s.push_str("  pop rdi\n");
                     s.push_str("  sub rax, rdi\n");
+                    s.push_str("  push rax\n");
                 },
                 _ => {}
             }

@@ -199,6 +199,7 @@ impl<'a> Parser<'a> {
         if self.consume(TokenType::Minus) {
             ope = NodeType::Minus;
         } else {
+            self.consume(TokenType::Plus);
             ope = NodeType::Plus;
         }
         NodeType::Unary(Box::new(ope), Box::new(self.primary()))

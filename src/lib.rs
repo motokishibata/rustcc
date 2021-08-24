@@ -70,6 +70,8 @@ impl TokenType {
             '<' => Some(Lt),
             '>' => Some(Gt),
             ';' => Some(Semicolon),
+            '(' => Some(LeftParen),
+            ')' => Some(RightParen),
             _ => None,
         }
     }
