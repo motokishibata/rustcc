@@ -25,14 +25,35 @@ pub fn gen_x86(node: NodeType) -> String {
 }
 
 fn gen_lval(node: NodeType) -> String {
-    let lvar:LVar  = match node {
-        NodeType::LVar(lvar) => lvar,
+    let offset  = match node {
+        NodeType::LVar(offset) => offset,
+        // NodeType::Equality(r1, _) => {
+        //     match *r1 {
+        //         NodeType::Relational(a1, _) => {
+        //             match *a1 {
+        //                 NodeType::Multi(u, _) => {
+        //                     match *u {
+        //                         NodeType::Unary(_, primary) => {
+        //                             match *primary {
+        //                                 NodeType::LVar(offset) => offset,
+        //                                 _ => panic!("oh!"),
+        //                             }
+        //                         },
+        //                         _ => panic!("not primary"),
+        //                     }
+        //                 },
+        //                 _ => panic!("oh!"),
+        //             }
+        //         },
+        //         _ => panic!("oh!"),
+        //     }
+        // },
         _ => panic!("not lvar"),
     };
 
     let mut s = String::new();
     s.push_str("  mov rax, rbp\n");
-    s.push_str(format!("  sub rax, {}\n", lvar.offset).as_str());
+    s.push_str(format!("  sub rax, {}\n", offset).as_str());
     s.push_str("  push rax\n");
     return s;
 }
@@ -237,7 +258,12 @@ fn gen_primary(node: NodeType) -> String {
     let mut s = String::new();
     match node {
         NodeType::Num(val) => s.push_str(&format!("  push {}\n", val)),
-        NodeType::LVar(_) => s.push_str(&gen_lval(node)),
+        NodeType::LVar(_) => {
+            s.push_str(&gen_lval(node));
+            // s.push_str("  pop rax\n");
+            // s.push_str("  mov rax, [rax]\n");
+            // s.push_str("  push rax\n");
+        },
         _ => s.push_str(&gen_expr(node)),
     }
     s

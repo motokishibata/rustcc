@@ -1,14 +1,14 @@
 use crate::TokenType;
 
 pub fn parse(tokens: &Vec<TokenType>) -> NodeType {
-    let mut parser = Parser::new(tokens);
+    let locals: &mut Vec<LVar> = &mut vec![];
+    let mut parser = Parser::new(tokens, locals);
     parser.program()
 }
 
 #[derive(Debug, Clone)]
 pub enum NodeType {
     Num(i32),       // 数値
-    Ident(String),  // 識別子
     Plus,
     Minus,
     Mul,
@@ -19,7 +19,7 @@ pub enum NodeType {
     Lt,
     Ge,
     Gt,
-    LVar(LVar),
+    LVar(i32),
     Unary(Box<NodeType>, Box<NodeType>),
     Multi(Box<NodeType>, Vec<(NodeType, NodeType)>),
     Add(Box<NodeType>, Vec<(NodeType, NodeType)>),
@@ -27,7 +27,6 @@ pub enum NodeType {
     Equality(Box<NodeType>, Vec<(NodeType, NodeType)>),
     Assign(Box<NodeType>, Option<Box<NodeType>>),
     Expr(Box<NodeType>),
-    Stmt(Box<NodeType>),
     Return(Box<NodeType>),
     Program(Vec<NodeType>),        // top node
 }
@@ -42,14 +41,29 @@ pub struct LVar {
 pub struct Parser<'a> {
     tokens: &'a Vec<TokenType>,
     pos: usize,
+    locals: &'a mut Vec<LVar>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a Vec<TokenType>) -> Self {
+    pub fn new(tokens: &'a Vec<TokenType>, locals: &'a mut Vec<LVar>) -> Self {
         Parser {
             tokens,
             pos: 0,
+            locals,
         }
+    }
+
+    fn find_lvar(&self, ty: TokenType) -> Option<&LVar> {
+        let ident = match ty {
+            TokenType::Ident(name) => name,
+            _ => return None,
+        };
+        for var in self.locals.iter() {
+            if var.name == ident {
+                return Some(var);
+            }
+        }
+        return None;
     }
 
     fn expect(&mut self, ty: TokenType) {
@@ -215,7 +229,23 @@ impl<'a> Parser<'a> {
             },
             TokenType::Ident(ident) => {
                 self.pos += 1;
-                NodeType::Ident(ident.into())
+                let offset;
+                if let Some(lvar) = self.find_lvar(t.clone()) {
+                    offset = lvar.offset;
+                } else {
+                    let tail = self.locals.last();
+                    offset = match tail {
+                        Some(var) => var.offset + 8,
+                        None => 8,
+                    };
+                }
+                let lvar = LVar {
+                    name: ident.into(),
+                    len: ident.len() as i32,
+                    offset
+                };
+                self.locals.push(lvar);
+                NodeType::LVar(offset)
             },
             _ => {
                 self.expect(TokenType::LeftParen);
