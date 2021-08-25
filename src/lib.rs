@@ -1,10 +1,10 @@
-mod token2;
-pub mod parse2;
+pub mod token;
+pub mod parse;
 
 #[cfg(test)]
 mod tokenize_test {
     use crate::TokenType;
-    use crate::token2::*;
+    use crate::token::*;
 
     #[test]
     fn it_single_digit() {

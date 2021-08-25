@@ -1,354 +1,257 @@
-use std::collections::VecDeque;
+use crate::TokenType;
 
-use super::token::*;
-
-#[derive(PartialEq, Debug)]
-pub enum NodeKind {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Num,
-    Eq,     // ==
-    Ne,     // !=
-    Le,     // <=
-    Lt,     // <
-    Assign, // =
-    LVar,   // ローカル変数
-    Return, // return
+pub fn parse(tokens: &Vec<TokenType>) -> NodeType {
+    let locals: &mut Vec<LVar> = &mut vec![];
+    let mut parser = Parser::new(tokens, locals);
+    parser.program()
 }
 
-pub struct Node {
-    pub kind: NodeKind,
-    pub lhs: Box<Option<Node>>,
-    pub rhs: Box<Option<Node>>,
-    pub val: isize,
-    pub offset: isize,
+#[derive(Debug, Clone)]
+pub enum NodeType {
+    Num(i32),       // 数値
+    Plus(Box<NodeType>, Box<NodeType>),
+    Minus(Box<NodeType>, Box<NodeType>),
+    Mul(Box<NodeType>, Box<NodeType>),
+    Div(Box<NodeType>, Box<NodeType>),
+    Eq(Box<NodeType>, Box<NodeType>),
+    Ne(Box<NodeType>, Box<NodeType>),
+    Le(Box<NodeType>, Box<NodeType>),
+    Lt(Box<NodeType>, Box<NodeType>),
+    Ge(Box<NodeType>, Box<NodeType>),
+    Gt(Box<NodeType>, Box<NodeType>),
+    Negative(Box<NodeType>),        // -
+    LVar(i32),
+    Assign(Box<NodeType>, Box<NodeType>),
+    Return(Box<NodeType>),
+    Program(Vec<NodeType>),        // top node
 }
 
-fn new_node(kind: NodeKind, lhs: Option<Node>, rhs: Option<Node>) -> Node {
-    return Node {
-        kind: kind,
-        lhs: Box::new(lhs),
-        rhs: Box::new(rhs),
-        val: 0,
-        offset: 0,
-    };
-}
-
-fn new_num_node(val: isize) -> Node {
-    return Node {
-        kind: NodeKind::Num,
-        lhs: Box::new(None),
-        rhs: Box::new(None),
-        val: val,
-        offset: 0,
-    };
-}
-
+#[derive(Debug, Clone)]
 pub struct LVar {
     pub name: String,
     pub len: i32,
     pub offset: i32,
 }
 
-pub fn find_lvar(tok: Token, locals: &Vec<LVar>) -> Option<&LVar> {
-    for var in locals {
-        if var.len == tok.len && var.name == tok.get_string() {
-            return Some(var);
-        }
-    }
-    return None;
+pub struct Parser<'a> {
+    tokens: &'a Vec<TokenType>,
+    pos: usize,
+    locals: &'a mut Vec<LVar>,
 }
 
-// program = stmt*
-pub fn program(tokens: VecDeque<Token>) -> Vec<Node> {
-    let mut code: Vec<Node> = Vec::new();
-    let locals: Vec<LVar> = Vec::new();
-    let (mut node, mut tokens, mut locals) = stmt(tokens, locals);
-    code.push(node);
-
-    loop {
-        match tokens.front() {
-            Some(tk) => {
-                if tk.kind == TokenKind::Eof {
-                    break;
-                }
-            },
-            None => panic!("not found eof token"),
-        }
-
-        let ret = stmt(tokens, locals);
-        node = ret.0;
-        tokens = ret.1;
-        locals = ret.2;
-        code.push(node);
-    }
-
-    return code;
-}
-
-// stmt = expr ";" | "return" expr ";"
-pub fn stmt(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    let node: Node;
-    let mut tokens = tokens;
-    let mut locals = locals;
-    let token = tokens.front().unwrap();
-
-    if token.kind == TokenKind::Return {
-        tokens.pop_front();
-        let ret = expr(tokens, locals);
-        node = new_node(NodeKind::Return, Some(ret.0), None);
-        tokens = ret.1;
-        locals = ret.2;
-    } else {
-        let ret = expr(tokens, locals);
-        node = ret.0;
-        tokens = ret.1;
-        locals = ret.2;
-    }
-
-    let token = tokens.pop_front().unwrap();
-    if token.st != Some(";".to_string()) {
-        panic!("require ;");
-    }
-
-    return (node, tokens, locals);
-}
-
-// expr = assign
-pub fn expr(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    return assign(tokens, locals);
-}
-
-// assign = equality ("=" assign)?
-pub fn assign(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    let (mut node, mut tokens, mut locals) = equality(tokens, locals);
-
-    if let Some(tk) = tokens.front() {
-        if tk.get_string() == "=" {
-            tokens.pop_front();
-            let ret = assign(tokens, locals);
-            tokens = ret.1;
-            locals = ret.2;
-
-            node = new_node(NodeKind::Assign, Some(node), Some(ret.0));
+impl<'a> Parser<'a> {
+    pub fn new(tokens: &'a Vec<TokenType>, locals: &'a mut Vec<LVar>) -> Self {
+        Parser {
+            tokens,
+            pos: 0,
+            locals,
         }
     }
 
-    return (node, tokens, locals);
-}
-
-// equality = relational ("==" relational | "!=" relational)*
-pub fn equality(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    let (mut node, mut tokens, mut locals) = relational(tokens, locals);
-
-    loop {
-        let token = match tokens.front() {
-            Some(tk) => {
-                if tk.kind == TokenKind::Eof || tk.kind != TokenKind::Reserved {
-                    break;
-                }
-                tk
-            },
-            None => break,
+    fn find_lvar(&self, ty: TokenType) -> Option<&LVar> {
+        let ident = match ty {
+            TokenType::Ident(name) => name,
+            _ => return None,
         };
-
-        let nodekind = match token.get_string() {
-            "==" => NodeKind::Eq,
-            "!=" => NodeKind::Ne,
-            _ => break,
-        };
-
-        tokens.pop_front();
-        let ret = relational(tokens, locals);
-        tokens = ret.1;
-        locals = ret.2;
-
-        node = new_node(nodekind, Some(node), Some(ret.0));
-    }
-
-    return (node, tokens, locals);
-}
-
-// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
-pub fn relational(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    let (mut node, mut tokens, mut locals) = add(tokens, locals);
-
-    loop {
-        let token = match tokens.front() {
-            Some(tk) => {
-                if tk.kind != TokenKind::Reserved {
-                    break;
-                }
-                tk
-            },
-            None => break,
-        };
-
-        let (nodekind, switch) = match token.get_string() {
-            "<" => (NodeKind::Lt, false),
-            "<=" => (NodeKind::Le, false),
-            ">" => (NodeKind::Lt, true),
-            ">=" => (NodeKind::Le, true),
-            _ => break,
-        };
-
-        tokens.pop_front();
-        let ret = add(tokens, locals);
-        tokens = ret.1;
-        locals = ret.2;
-
-        if switch {
-            node = new_node(nodekind, Some(ret.0), Some(node));
-        } else {
-            node = new_node(nodekind, Some(node), Some(ret.0));
-        }
-    }
-
-    return (node, tokens, locals);
-}
-
-// add = mul ("+" mul | "-" mul)*
-pub fn add(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    let (mut node, mut tokens, mut locals) = mul(tokens, locals);
-
-    loop {
-        let token = match tokens.front() {
-            Some(tk) => {
-                if tk.kind != TokenKind::Reserved {
-                    break;
-                }
-                tk
-            },
-            None => break,
-        };
-
-        let nodekind = match token.get_string() {
-            "+" => NodeKind::Add,
-            "-" => NodeKind::Sub,
-            _ => break,
-        };
-
-        tokens.pop_front();
-        let ret = mul(tokens, locals);
-        tokens = ret.1;
-        locals = ret.2;
-
-        node = new_node(nodekind, Some(node), Some(ret.0));
-    }
-
-    return (node, tokens, locals);
-}
-
-// mul = unary ("*" unary | "/" unary)*
-pub fn mul(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    let (mut node, mut tokens, mut locals) = unary(tokens, locals);
-
-    loop {
-        let token = match tokens.front() {
-            Some(tk) => {
-                if tk.kind != TokenKind::Reserved {
-                    break;
-                }
-                tk
-            },
-            None => break,
-        };
-
-        let nodekind = match token.get_string() {
-            "*" => NodeKind::Mul,
-            "/" => NodeKind::Div,
-            _ => break,
-        };
-
-        tokens.pop_front();
-        let ret = unary(tokens, locals);
-        tokens = ret.1;
-        locals = ret.2;
-
-        node = new_node(nodekind, Some(node), Some(ret.0));
-    }
-
-    return (node, tokens, locals);
-}
-
-// unary = ("+" | "-")? primary
-pub fn unary(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    let mut tokens = tokens;
-    let mut locals = locals;
-    let token = tokens.front().unwrap();
-
-    if token.kind == TokenKind::Reserved {
-        if token.get_string() == "+" {
-            tokens.pop_front();
-            return primary(tokens, locals);
-        }
-        else if token.get_string() == "-" {
-            tokens.pop_front();
-            let _lhs = new_num_node(0);
-
-            let ret = primary(tokens, locals);
-            tokens = ret.1;
-            locals = ret.2;
-
-            let node = new_node(NodeKind::Sub, Some(_lhs), Some(ret.0));
-            return (node, tokens, locals);
-        }
-    }
-
-    return primary(tokens, locals);
-}
-
-// primary = num | ident | "(" expr ")"
-pub fn primary(tokens: VecDeque<Token>, locals: Vec<LVar>) -> (Node, VecDeque<Token>, Vec<LVar>) {
-    let mut tokens = tokens;
-    let mut locals = locals;
-    let token = tokens.pop_front().unwrap();
-
-    if token.kind == TokenKind::Reserved {
-        if token.get_string() == "(" {
-            let (node, mut tokens, locals) = expr(tokens, locals);
-            tokens.pop_front();
-            return (node, tokens, locals);
-        }
-        panic!("not support operation");
-    }
-
-    if token.kind == TokenKind::Ident {
-        let len = token.len;
-        let name = token.get_string().to_string();
-        let lvar = find_lvar(token, &locals);
-
-        let offset = match lvar {
-            Some(v) => v.offset,
-            None => {
-                let current_lvar = locals.last();
-                let offset = match current_lvar {
-                    Some(v) => v.offset + 8,
-                    None => 8
-                };
-                let new_lvar = LVar {
-                    name: name,
-                    len: len,
-                    offset: offset
-                };
-                locals.push(new_lvar);
-                offset
+        for var in self.locals.iter() {
+            if var.name == ident {
+                return Some(var);
             }
-        };
-
-        let node = Node {
-            kind: NodeKind::LVar,
-            lhs: Box::new(None),
-            rhs: Box::new(None),
-            val: 0,
-            offset: offset as isize
-        };
-
-        return (node, tokens, locals);
+        }
+        return None;
     }
-    
-    let node = new_num_node(token.val.unwrap() as isize);
-    return (node, tokens, locals);
+
+    fn expect(&mut self, ty: TokenType) {
+        if let Some(t) = self.tokens.get(self.pos) {
+            if *t == ty {
+                self.pos += 1;
+                return;
+            }
+        }
+        panic!("not expect charcter");
+    }
+
+    fn consume(&mut self, ty: TokenType) -> bool {
+        if let Some(t) = self.tokens.get(self.pos) {
+            if *t == ty {
+                self.pos += 1;
+                return true;
+            }
+        }
+        false
+    }
+
+    // program = stmt*
+    fn program(&mut self) -> NodeType {
+        let mut stmts = vec![];
+        while self.tokens.len() != self.pos {
+            stmts.push(self.stmt());
+        }
+        NodeType::Program(stmts)
+    }
+
+    // stmt =  expr ";" |
+    //         "return" expr ";"
+    fn stmt(&mut self) -> NodeType {
+        let t = &self.tokens[self.pos];
+
+        match t {
+            TokenType::Return => {
+                self.pos += 1;
+                let expr = self.expr();
+                self.expect(TokenType::Semicolon);
+                NodeType::Return(Box::new(expr))
+            },
+            _ => {
+                let expr = self.expr();
+                self.expect(TokenType::Semicolon);
+                expr
+            }
+        }
+    }
+
+    // expr = assign
+    fn expr(&mut self) -> NodeType {
+        self.assign()
+    }
+
+    // assign = equality ("=" assign)?
+    fn assign(&mut self) -> NodeType {
+        let eq = self.equality();
+        if self.consume(TokenType::Assign) {
+            let assign = Box::new(self.assign());
+            NodeType::Assign(Box::new(eq), assign)
+        } else {
+            eq
+        }
+    }
+
+    // equality = relational ("==" relational | "!=" relational)*
+    fn equality(&mut self) -> NodeType {
+        let mut rel = self.relational();
+        loop {
+            if self.consume(TokenType::Eq) {
+                let rhs = Box::new(self.relational());
+                rel = NodeType::Eq(Box::new(rel), rhs);
+                continue;
+            } else if self.consume(TokenType::Ne) {
+                let rhs = Box::new(self.relational());
+                rel = NodeType::Ne(Box::new(rel), rhs);
+                continue;
+            }
+            break;
+        }
+        rel
+    }
+
+    // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+    fn relational(&mut self) -> NodeType {
+        let mut add = self.add();
+        loop {
+            if self.consume(TokenType::Lt) {
+                let rhs = Box::new(self.add());
+                add = NodeType::Lt(Box::new(add), rhs);
+                continue;
+            } else if self.consume(TokenType::Le) {
+                let rhs = Box::new(self.add());
+                add = NodeType::Le(Box::new(add), rhs);
+                continue;
+            } else if self.consume(TokenType::Gt) {
+                let rhs = Box::new(self.add());
+                add = NodeType::Gt(Box::new(add), rhs);
+                continue;
+            } else if self.consume(TokenType::Ge) {
+                let rhs = Box::new(self.add());
+                add = NodeType::Ge(Box::new(add), rhs);
+                continue;
+            }
+            break;
+        }
+        add
+    }
+
+    // add = mul ("+" mul | "-" mul)*
+    fn add(&mut self) -> NodeType {
+        let mut mul = self.mul();
+        loop {
+            if self.consume(TokenType::Plus) {
+                let rhs = Box::new(self.mul());
+                mul = NodeType::Plus(Box::new(mul), rhs);
+                continue;
+            } else if self.consume(TokenType::Minus) {
+                let rhs = Box::new(self.mul());
+                mul = NodeType::Minus(Box::new(mul), rhs);
+                continue;
+            }
+            break;
+        }
+        mul
+    }
+
+    // mul = unary ("*" unary | "/" unary)*
+    fn mul(&mut self) -> NodeType {
+        let mut unary = self.unary();
+        loop {
+            if self.consume(TokenType::Mul) {
+                let rhs = Box::new(self.unary());
+                unary = NodeType::Mul(Box::new(unary), rhs);
+                continue;
+            } else if self.consume(TokenType::Div) {
+                let rhs = Box::new(self.unary());
+                unary = NodeType::Div(Box::new(unary), rhs);
+                continue;
+            }
+            break;
+        }
+        unary
+    }
+
+    // unary = ("+" | "-")? primary
+    fn unary(&mut self) -> NodeType {
+        if self.consume(TokenType::Minus) {
+            let primary = Box::new(self.primary());
+            NodeType::Negative(primary)
+        } else if self.consume(TokenType::Plus) {
+            self.primary()
+        } else {
+            self.primary()
+        }
+    }
+
+    // primary = num | ident | "(" expr ")"
+    fn primary(&mut self) -> NodeType {
+        let t = &self.tokens[self.pos];
+        match t {
+            TokenType::Num(val) => {
+                self.pos += 1;
+                NodeType::Num(*val)
+            },
+            TokenType::Ident(ident) => {
+                self.pos += 1;
+                let offset;
+                if let Some(lvar) = self.find_lvar(t.clone()) {
+                    offset = lvar.offset;
+                } else {
+                    let tail = self.locals.last();
+                    offset = match tail {
+                        Some(var) => var.offset + 8,
+                        None => 8,
+                    };
+                }
+                let lvar = LVar {
+                    name: ident.into(),
+                    len: ident.len() as i32,
+                    offset
+                };
+                self.locals.push(lvar);
+                NodeType::LVar(offset)
+            },
+            _ => {
+                self.expect(TokenType::LeftParen);
+                let nt = self.expr();
+                self.expect(TokenType::RightParen);
+                nt
+            }
+        }
+    }
 }

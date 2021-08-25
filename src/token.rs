@@ -1,189 +1,149 @@
-use std::collections::VecDeque;
+use std::collections::HashMap;
+use once_cell::sync::Lazy;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum TokenKind {
-    Reserved,
-    Ident,
-    Num,
-    Return,
-    Eof
+use crate::TokenType;
+use crate::CharacterType;
+
+pub fn tokenize(src: &str) -> Vec<TokenType> {
+    let mut tokenizer = Tokenizer::new(src.chars().collect());
+    tokenizer.scan(&keyword_map());
+    tokenizer.tokens
 }
 
-#[derive(Clone)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub val: Option<i32>,
-    pub st: Option<String>,
-    pub len: i32
+fn keyword_map() -> HashMap<String, TokenType> {
+    let mut map = HashMap::new();
+    map.insert("if".into(), TokenType::If);
+    map.insert("return".into(), TokenType::Return);
+    map
 }
 
-impl Token {
-    pub fn get_string(&self) -> &str {
-        match &self.st {
-            Some(s) => return s,
-            None => return "",
-        };
-    }
+#[derive(Debug, Clone)]
+struct Symbol {
+    name: &'static str,
+    ty: TokenType,
+}
 
-    pub fn new(kind: TokenKind, val: Option<i32>, st: Option<String>, len: i32) -> Token {
-        return Token {
-            kind: kind,
-            val: val,
-            st: st,
-            len: len
-        };
+impl Symbol {
+    fn new(name: &'static str, ty: TokenType) -> Self {
+        Symbol { name, ty }
     }
 }
 
-pub fn tokenize(src: &str) -> VecDeque<Token> {
-    let cs: Vec<char> = src.chars().collect();
-    let mut chars = VecDeque::from(cs);
+static SYMBOLS: Lazy<Vec<Symbol>> = Lazy::new(|| [
+    Symbol::new("==", TokenType::Eq),
+    Symbol::new("!=", TokenType::Ne),
+    Symbol::new("<=", TokenType::Le),
+    Symbol::new(">=", TokenType::Ge),
+].to_vec());
 
-    let mut tokens: VecDeque<Token> = VecDeque::new();
+struct Tokenizer {
+    src: Vec<char>,
+    pos: usize,
+    tokens: Vec<TokenType>
+}
 
-    loop {
-        let ch = match chars.front() {
-            Some(c) => c,
-            None => break,
-        };
-
-        if *ch == ' ' {
-            chars.pop_front();
-            continue;
+impl Tokenizer {
+    fn new(src: Vec<char>) -> Self {
+        Tokenizer {
+            src,
+            pos: 0,
+            tokens: Vec::from(vec![])
         }
+    }
 
-        if is_reserved(*ch) {
-            let (que, st, len) = lookahead_for_reserved(chars);
-            chars = que;
-            let token = Token::new(TokenKind::Reserved, None, Some(st), len);
-            tokens.push_back(token);
-            continue;
-        }
-        
-        if ch.is_numeric() {
-            let (que, num, len) = lookahead_for_num(chars);
-            chars = que;
-            let token = Token::new(TokenKind::Num, Some(num), None, len);
-            tokens.push_back(token);
-            continue;
-        }
-
-        if is_return(&chars) {
-            for _ in 0..6 {
-                chars.pop_front();
+    fn get_character(&self, advance_from_pos: usize) -> Option<CharacterType> {
+        self.src.get(self.pos + advance_from_pos).map(|ch| {
+            if ch == &'\n' {
+                CharacterType::NewLine
+            } else if ch == &' ' || ch == &'\t' {
+                CharacterType::Whitespace
+            } else if ch.is_alphabetic() || ch == &'_' {
+                CharacterType::Alphabetic
+            } else if ch.is_ascii_digit() {
+                CharacterType::Digit
+            } else {
+                CharacterType::NonAlphabetic(*ch)
             }
-            let token = Token::new(TokenKind::Return, None, None, 6);
-            tokens.push_back(token);
-            continue;
-        }
-
-        if ch.is_ascii_alphabetic() {
-            let (que, st, len) = lookahead_for_ident(chars);
-            chars = que;
-            let token = Token::new(TokenKind::Ident, None, Some(st), len);
-            tokens.push_back(token);
-            continue;
-        }
-
-        panic!("not support character");
+        })
     }
 
-    let eof = Token::new(TokenKind::Eof, None, None, 0);
-    tokens.push_back(eof);
+    fn scan(&mut self, keywords: &HashMap<String, TokenType>) -> Vec<TokenType> {
+        'outer: while let Some(head_char) = self.get_character(0) {
+            match head_char {
+                CharacterType::NewLine => {
+                    self.pos += 1;
+                    self.tokens.push(TokenType::NewLine)
+                },
+                CharacterType::Whitespace => self.pos += 1,
+                CharacterType::Alphabetic => self.ident(&keywords),
+                CharacterType::Digit => self.number(),
+                CharacterType::NonAlphabetic(c) => {
+                    // Multi-letter symbol
+                    for symbol in SYMBOLS.iter() {
+                        let name = symbol.name;
+                        let len = name.len();
+                        if self.pos + len > self.src.len() {
+                            continue;
+                        }
 
-    return tokens;
-}
+                        let first = &self.src[self.pos..(self.pos + len)];
+                        if name != first.iter().collect::<String>() {
+                            continue;
+                        }
 
-pub fn lookahead_for_num(chars: VecDeque<char>) -> (VecDeque<char>, i32, i32) {
-    let mut chars = chars;
-    let mut buf = String::new();
+                        self.pos += len;
+                        self.tokens.push(symbol.ty.clone());
+                        continue 'outer;
+                    }
 
-    while let Some(c) = chars.front() {
-        if !is_num(*c) {
+                    // Single-letter symbol
+                    if let Some(ty) = TokenType::new_single_letter(c) {
+                        self.pos += 1;
+                        self.tokens.push(ty);
+                        continue 'outer;
+                    }
+                    panic!("not support symbol");
+                },
+                CharacterType::Unknown(_) => panic!("not support character")
+            }
+        }
+        self.tokens.clone()
+    }
+
+    fn ident(&mut self, keywords: &HashMap<String, TokenType>) {
+        let mut len = 1;
+        while let Some(c2) = self.src.get(self.pos + len) {
+            if c2.is_alphabetic() || c2.is_ascii_digit() || c2 == &'_' {
+                len += 1;
+                continue;
+            }
             break;
         }
-        let ch = chars.pop_front().unwrap();
-        buf.push(ch);
+
+        let name: String = self.src[self.pos..(self.pos + len)].iter().collect();
+        let t;
+        if let Some(keyword) = keywords.get(&name) {
+            t = keyword.clone();
+        } else {
+            t = TokenType::Ident(name.clone());
+        }
+
+        self.pos += len;
+        self.tokens.push(t);
     }
 
-    let len = buf.len() as i32;
-    let num = buf.parse::<i32>().unwrap();
-    return (chars, num, len);
-}
-
-pub fn char_to_num(ch: char) -> i32 {
-    return ch as i32 - 48;
-}
-
-pub fn is_num(ch: char) -> bool {
-    let num = char_to_num(ch);
-    return 0 <= num && num <= 9;
-}
-
-pub fn lookahead_for_reserved(chars: VecDeque<char>) -> (VecDeque<char>, String, i32) {
-    let mut chars = chars;
-    let mut buf = String::new();
-
-    if let Some(c) = chars.front() {
-        if "+-*/();".contains(*c) {
-            let ch = chars.pop_front().unwrap();
-            buf.push(ch);
-        }
-        else if "=!<>".contains(*c) {
-            let ch = chars.pop_front().unwrap();
-            buf.push(ch);
-
-            if let Some(c) = chars.front() {
-                if '=' == *c {
-                    let ch = chars.pop_front().unwrap();
-                    buf.push(ch);
-                }
+    fn number(&mut self) {
+        let mut sum: i32 = 0;
+        let mut len = 0;
+        for c in self.src[self.pos..].iter() {
+            if let Some(val) = c.to_digit(10) {
+                sum = sum * 10 as i32 + val as i32;
+                len += 1;
+            } else {
+                break;
             }
         }
+        self.pos += len;
+        self.tokens.push(TokenType::Num(sum as i32));
     }
-
-    let len = buf.len() as i32;
-    return (chars, buf, len);
-}
-
-pub fn is_reserved(ch: char) -> bool {
-    return "+-*/()=!<>;".contains(ch);
-}
-
-pub fn lookahead_for_ident(chars: VecDeque<char>) -> (VecDeque<char>, String, i32) {
-    let mut chars = chars;
-    let mut buf = String::new();
-
-    while let Some(c) = chars.front() {
-        if !c.is_ascii_alphabetic() && !(*c == '_') {
-            break;
-        }
-        let ch = chars.pop_front().unwrap();
-        buf.push(ch);
-    }
-
-    let len = buf.len() as i32;
-    return (chars, buf, len);
-}
-
-fn is_return(chars: &VecDeque<char>) -> bool {
-    if chars.len() < 6 {
-        return false;
-    }
-
-    let mut r = VecDeque::from(vec!['r','e','t','u','r','n']);
-    
-    for ch in chars {
-        if r.is_empty() {
-            return !ch.is_ascii_alphanumeric() && *ch != '_';
-        }
-
-        if let Some(c) = r.pop_front() {
-            if c != *ch {
-                return false;
-            }
-        }
-    }
-
-    return false;
 }
