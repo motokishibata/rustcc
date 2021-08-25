@@ -9,24 +9,19 @@ pub fn parse(tokens: &Vec<TokenType>) -> NodeType {
 #[derive(Debug, Clone)]
 pub enum NodeType {
     Num(i32),       // 数値
-    Plus,
-    Minus,
-    Mul,
-    Div,
-    Eq,
-    Ne,
-    Le,
-    Lt,
-    Ge,
-    Gt,
+    Plus(Box<NodeType>, Box<NodeType>),
+    Minus(Box<NodeType>, Box<NodeType>),
+    Mul(Box<NodeType>, Box<NodeType>),
+    Div(Box<NodeType>, Box<NodeType>),
+    Eq(Box<NodeType>, Box<NodeType>),
+    Ne(Box<NodeType>, Box<NodeType>),
+    Le(Box<NodeType>, Box<NodeType>),
+    Lt(Box<NodeType>, Box<NodeType>),
+    Ge(Box<NodeType>, Box<NodeType>),
+    Gt(Box<NodeType>, Box<NodeType>),
+    Negative(Box<NodeType>),        // -
     LVar(i32),
-    Unary(Box<NodeType>, Box<NodeType>),
-    Multi(Box<NodeType>, Vec<(NodeType, NodeType)>),
-    Add(Box<NodeType>, Vec<(NodeType, NodeType)>),
-    Relational(Box<NodeType>, Vec<(NodeType, NodeType)>),
-    Equality(Box<NodeType>, Vec<(NodeType, NodeType)>),
-    Assign(Box<NodeType>, Option<Box<NodeType>>),
-    Expr(Box<NodeType>),
+    Assign(Box<NodeType>, Box<NodeType>),
     Return(Box<NodeType>),
     Program(Vec<NodeType>),        // top node
 }
@@ -117,106 +112,90 @@ impl<'a> Parser<'a> {
 
     // expr = assign
     fn expr(&mut self) -> NodeType {
-        let assign = self.assign();
-        NodeType::Expr(Box::new(assign))
+        self.assign()
     }
 
     // assign = equality ("=" assign)?
     fn assign(&mut self) -> NodeType {
         let eq = self.equality();
-        let mut assign = None;
         if self.consume(TokenType::Assign) {
-            assign = Some(Box::new(self.assign()));
+            let assign = Box::new(self.assign());
+            NodeType::Assign(Box::new(eq), assign)
+        } else {
+            eq
         }
-        NodeType::Assign(Box::new(eq), assign)
     }
 
     // equality = relational ("==" relational | "!=" relational)*
     fn equality(&mut self) -> NodeType {
-        let r1 = self.relational();
-        let mut r2 = vec![];
-        loop {
-            let eq;
-            if self.consume(TokenType::Eq) {
-                eq = NodeType::Eq; 
-            } else if self.consume(TokenType::Ne) {
-                eq = NodeType::Ne;
-            } else {
-                break;
-            }
-            r2.push((eq, self.relational()));
+        let rel = self.relational();
+        if self.consume(TokenType::Eq) {
+            let rhs = Box::new(self.relational());
+            NodeType::Eq(Box::new(rel), rhs)
+        } else if self.consume(TokenType::Ne) {
+            let rhs = Box::new(self.relational());
+            NodeType::Ne(Box::new(rel), rhs)
+        } else {
+            rel
         }
-        NodeType::Equality(Box::new(r1), r2)
     }
 
     // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
     fn relational(&mut self) -> NodeType {
-        let add1 = self.add();
-        let mut add2 = vec![];
-        loop {
-            let op;
-            if self.consume(TokenType::Lt) {
-                op = NodeType::Lt;
-            } else if self.consume(TokenType::Le) {
-                op = NodeType::Le;
-            } else if self.consume(TokenType::Gt) {
-                op = NodeType::Gt;
-            } else if self.consume(TokenType::Ge) {
-                op = NodeType::Ge;
-            } else {
-                break;
-            }
-            add2.push((op, self.add()));
+        let add = self.add();
+        if self.consume(TokenType::Lt) {
+            let rhs = Box::new(self.add());
+            NodeType::Lt(Box::new(add), rhs)
+        } else if self.consume(TokenType::Le) {
+            let rhs = Box::new(self.add());
+            NodeType::Le(Box::new(add), rhs)
+        } else if self.consume(TokenType::Gt) {
+            let rhs = Box::new(self.add());
+            NodeType::Gt(Box::new(add), rhs)
+        } else if self.consume(TokenType::Ge) {
+            let rhs = Box::new(self.add());
+            NodeType::Ge(Box::new(add), rhs)
+        } else {
+            add
         }
-        NodeType::Relational(Box::new(add1), add2)
     }
 
     // add = mul ("+" mul | "-" mul)*
     fn add(&mut self) -> NodeType {
-        let mul1 = self.mul();
-        let mut mul2 = vec![];
-        loop {
-            let op;
-            if self.consume(TokenType::Plus) {
-                op = NodeType::Plus;
-            } else if self.consume(TokenType::Minus) {
-                op = NodeType::Minus;
-            } else {
-                break;
-            }
-            mul2.push((op, self.mul()));
+        let mul = self.mul();
+        if self.consume(TokenType::Plus) {
+            let rhs = Box::new(self.mul());
+            NodeType::Plus(Box::new(mul), rhs)
+        } else if self.consume(TokenType::Minus) {
+            let rhs = Box::new(self.mul());
+            NodeType::Minus(Box::new(mul), rhs)
+        } else {
+            mul
         }
-        NodeType::Add(Box::new(mul1), mul2)
     }
 
     // mul = unary ("*" unary | "/" unary)*
     fn mul(&mut self) -> NodeType {
-        let u1 = self.unary();
-        let mut u2 = vec![];
-        loop {
-            let op;
-            if self.consume(TokenType::Mul) {
-                op = NodeType::Mul;
-            } else if self.consume(TokenType::Div) {
-                op = NodeType::Div;
-            } else {
-                break;
-            }
-            u2.push((op, self.unary()));
+        let unary = self.unary();
+        if self.consume(TokenType::Mul) {
+            let rhs = Box::new(self.unary());
+            NodeType::Mul(Box::new(unary), rhs)
+        } else if self.consume(TokenType::Div) {
+            let rhs = Box::new(self.unary());
+            NodeType::Div(Box::new(unary), rhs)
+        } else {
+            unary
         }
-        NodeType::Multi(Box::new(u1), u2)
     }
 
     // unary = ("+" | "-")? primary
     fn unary(&mut self) -> NodeType {
-        let ope;
         if self.consume(TokenType::Minus) {
-            ope = NodeType::Minus;
+            let primary = Box::new(self.primary());
+            NodeType::Negative(primary)
         } else {
-            self.consume(TokenType::Plus);
-            ope = NodeType::Plus;
+            self.primary()
         }
-        NodeType::Unary(Box::new(ope), Box::new(self.primary()))
     }
 
     // primary = num | ident | "(" expr ")"
