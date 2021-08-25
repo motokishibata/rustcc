@@ -13,6 +13,7 @@ pub fn tokenize(src: &str) -> Vec<TokenType> {
 fn keyword_map() -> HashMap<String, TokenType> {
     let mut map = HashMap::new();
     map.insert("if".into(), TokenType::If);
+    map.insert("else".into(), TokenType::Else);
     map.insert("return".into(), TokenType::Return);
     map
 }

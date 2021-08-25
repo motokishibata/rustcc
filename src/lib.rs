@@ -1,40 +1,6 @@
 pub mod token;
 pub mod parse;
 
-#[cfg(test)]
-mod tokenize_test {
-    use crate::TokenType;
-    use crate::token::*;
-
-    #[test]
-    fn it_single_digit() {
-        let tokens = tokenize("0");
-        assert_eq!(tokens, vec![
-            TokenType::Num(0),
-        ]);
-    }
-
-    #[test]
-    fn it_calc_add() {
-        let tokens = tokenize("0+1");
-        assert_eq!(tokens, vec![
-            TokenType::Num(0),
-            TokenType::Plus,
-            TokenType::Num(1),
-        ]);
-    }
-
-    #[test]
-    fn it_var() {
-        let tokens = tokenize("abc = 1");
-        assert_eq!(tokens, vec![
-            TokenType::Ident("abc".into()),
-            TokenType::Assign,
-            TokenType::Num(1),
-        ]);
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     Num(i32),       // 数値
@@ -45,6 +11,7 @@ pub enum TokenType {
     Mul,            // *
     Div,            // /
     If,             // if
+    Else,           // else
     Eq,             // ==
     Ne,             // !=
     Le,             // <=

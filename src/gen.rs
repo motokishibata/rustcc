@@ -1,3 +1,6 @@
+use std::{sync::Mutex, collections::HashMap};
+use once_cell::sync::Lazy;
+
 use crate::parse::NodeType;
 
 pub fn gen_x86(node: NodeType) -> String {
@@ -59,6 +62,26 @@ fn gen_stmt(node: NodeType) -> String {
             s.push_str("  pop rbp\n");
             s.push_str("  ret\n");
         },
+        NodeType::If(expr, then, els) => {
+            s.push_str(&gen_expr(*expr));
+            s.push_str("  pop rax\n");
+            s.push_str("  cmp rax, 0\n");
+            match els {
+                Some(stmt) => {
+                    s.push_str("je  .Lelse1\n");
+                    s.push_str(&gen_stmt(*then));
+                    s.push_str("jmp .Lend1\n");
+                    s.push_str(".Lelse1:\n");
+                    s.push_str(&gen_stmt(*stmt));
+                    s.push_str(".Lend1:\n");
+                },
+                None => {
+                    s.push_str("je .Lend1\n");
+                    s.push_str(&gen_stmt(*then));
+                    s.push_str(".Lend1:\n");
+                }
+            }
+        }
         _ => s.push_str(&gen_expr(node))
     }
     s
