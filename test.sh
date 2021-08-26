@@ -62,4 +62,6 @@ assert 10 "if (1<2) if (1>3) 20; else 10; else 30;"
 
 assert 6 "a=0; while (a<6) a = a + 1; a;"
 
+assert 6 "for (a=0;a<6;a=a+1) a;"
+
 echo OK

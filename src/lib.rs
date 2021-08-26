@@ -13,6 +13,7 @@ pub enum TokenType {
     If,             // if
     Else,           // else
     While,          // while
+    For,            // for
     Eq,             // ==
     Ne,             // !=
     Le,             // <=

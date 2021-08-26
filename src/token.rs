@@ -15,6 +15,7 @@ fn keyword_map() -> HashMap<String, TokenType> {
     map.insert("if".into(), TokenType::If);
     map.insert("else".into(), TokenType::Else);
     map.insert("while".into(), TokenType::While);
+    map.insert("for".into(), TokenType::For);
     map.insert("return".into(), TokenType::Return);
     map
 }

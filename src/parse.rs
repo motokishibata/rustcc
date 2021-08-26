@@ -25,6 +25,7 @@ pub enum NodeType {
     Return(Box<NodeType>),
     If(Box<NodeType>, Box<NodeType>, Option<Box<NodeType>>),
     While(Box<NodeType>, Box<NodeType>),
+    For(Option<Box<NodeType>>, Option<Box<NodeType>>, Option<Box<NodeType>>, Box<NodeType>),
     Program(Vec<NodeType>),        // top node
 }
 
@@ -95,6 +96,7 @@ impl<'a> Parser<'a> {
     // stmt =  expr ";" |
     //         "if" "(" expr ")" stmt ("else" stmt)?
     //         "while" "(" expr ")" stmt
+    //          "for" "(" expr? ";" expr? ";" expr? ")" stmt
     //         "return" expr ";"
     fn stmt(&mut self) -> NodeType {
         let t = &self.tokens[self.pos];
@@ -127,7 +129,34 @@ impl<'a> Parser<'a> {
                 self.expect(TokenType::RightParen);
                 let stmt = Box::new(self.stmt());
                 NodeType::While(expr, stmt)
-            }
+            },
+            TokenType::For => {
+                self.pos += 1;
+                self.expect(TokenType::LeftParen);
+                let expr1;
+                if self.consume(TokenType::Semicolon) {
+                    expr1 = None;
+                } else {
+                    expr1 = Some(Box::new(self.expr()));
+                    self.expect(TokenType::Semicolon);
+                }
+                let expr2;
+                if self.consume(TokenType::Semicolon) {
+                    expr2 = None;
+                } else {
+                    expr2 = Some(Box::new(self.expr()));
+                    self.expect(TokenType::Semicolon);
+                }
+                let expr3;
+                if self.consume(TokenType::RightParen) {
+                    expr3 = None;
+                } else {
+                    expr3 = Some(Box::new(self.expr()));
+                    self.expect(TokenType::RightParen);
+                }
+                let stmt = Box::new(self.stmt());
+                NodeType::For(expr1, expr2, expr3, stmt)
+            },
             _ => {
                 let expr = self.expr();
                 self.expect(TokenType::Semicolon);
