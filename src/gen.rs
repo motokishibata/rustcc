@@ -64,6 +64,12 @@ impl Generator {
 
     fn gen_stmt(&mut self, node: NodeType) {
         match node {
+            NodeType::Block(stmts) => {
+                for stmt in stmts {
+                    self.gen_stmt(stmt);
+                    self.src.push_str("  pop rax\n");
+                }
+            },
             NodeType::Return(expr) => {
                 self.gen_expr(*expr);
                 self.src.push_str("  pop rax\n");

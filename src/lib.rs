@@ -24,6 +24,8 @@ pub enum TokenType {
     Semicolon,      // ;
     LeftParen,      // (
     RightParen,     // )
+    LeftBrace,      // {
+    RightBrace,     // }
     NewLine,        // 改行
 }
 
@@ -41,6 +43,8 @@ impl TokenType {
             ';' => Some(Semicolon),
             '(' => Some(LeftParen),
             ')' => Some(RightParen),
+            '{' => Some(LeftBrace),
+            '}' => Some(RightBrace),
             _ => None,
         }
     }
