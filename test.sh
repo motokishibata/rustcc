@@ -58,5 +58,6 @@ assert 3 "return_x = 1; return_y = 2; return return_x+return_y;"
 
 assert 10 "if (1<5) 10;"
 assert 20 "if (1>2) 10; else 20;"
+assert 10 "if (1<2) if (1>3) 20; else 10; else 30;"
 
 echo OK
