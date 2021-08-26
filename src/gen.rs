@@ -92,7 +92,19 @@ impl Generator {
                         self.src.push_str(&format!("{}:\n", end_label));
                     }
                 }
-            }
+            },
+            NodeType::While(expr, stmt) => {
+                let begin_label = self.get_unique_label(".Lbegin".into());
+                let end_label = self.get_unique_label(".Lend".into());
+                self.src.push_str(&format!("{}:\n", begin_label));
+                self.gen_expr(*expr);
+                self.src.push_str("  pop rax\n");
+                self.src.push_str("  cmp rax, 0\n");
+                self.src.push_str(&format!("je  {}\n", end_label));
+                self.gen_stmt(*stmt);
+                self.src.push_str(&format!("jmp  {}\n", begin_label));
+                self.src.push_str(&format!("{}:\n", end_label));
+            },
             _ => self.gen_expr(node)
         }
     }

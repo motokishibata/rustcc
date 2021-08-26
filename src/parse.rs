@@ -24,6 +24,7 @@ pub enum NodeType {
     Assign(Box<NodeType>, Box<NodeType>),
     Return(Box<NodeType>),
     If(Box<NodeType>, Box<NodeType>, Option<Box<NodeType>>),
+    While(Box<NodeType>, Box<NodeType>),
     Program(Vec<NodeType>),        // top node
 }
 
@@ -93,6 +94,7 @@ impl<'a> Parser<'a> {
 
     // stmt =  expr ";" |
     //         "if" "(" expr ")" stmt ("else" stmt)?
+    //         "while" "(" expr ")" stmt
     //         "return" expr ";"
     fn stmt(&mut self) -> NodeType {
         let t = &self.tokens[self.pos];
@@ -118,6 +120,14 @@ impl<'a> Parser<'a> {
                 }
                 NodeType::If(expr, stmt, else_stmt)
             },
+            TokenType::While => {
+                self.pos += 1;
+                self.expect(TokenType::LeftParen);
+                let expr = Box::new(self.expr());
+                self.expect(TokenType::RightParen);
+                let stmt = Box::new(self.stmt());
+                NodeType::While(expr, stmt)
+            }
             _ => {
                 let expr = self.expr();
                 self.expect(TokenType::Semicolon);

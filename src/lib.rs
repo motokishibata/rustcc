@@ -12,6 +12,7 @@ pub enum TokenType {
     Div,            // /
     If,             // if
     Else,           // else
+    While,          // while
     Eq,             // ==
     Ne,             // !=
     Le,             // <=
