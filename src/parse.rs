@@ -21,6 +21,7 @@ pub enum NodeType {
     Gt(Box<NodeType>, Box<NodeType>),
     Negative(Box<NodeType>),        // -
     LVar(i32),
+    Function(String, Vec<i32>),
     Assign(Box<NodeType>, Box<NodeType>),
     Return(Box<NodeType>),
     If(Box<NodeType>, Box<NodeType>, Option<Box<NodeType>>),
@@ -283,7 +284,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // primary = num | ident | "(" expr ")"
+    // primary = num | ident ("(" ")")? | "(" expr ")"
     fn primary(&mut self) -> NodeType {
         let t = &self.tokens[self.pos];
         match t {
@@ -293,23 +294,37 @@ impl<'a> Parser<'a> {
             },
             TokenType::Ident(ident) => {
                 self.pos += 1;
-                let offset;
-                if let Some(lvar) = self.find_lvar(t.clone()) {
-                    offset = lvar.offset;
+                if self.consume(TokenType::LeftParen) {
+                    let mut args = vec![];
+                    while !self.consume(TokenType::RightParen) {
+                        let t = &self.tokens[self.pos];
+                        match t {
+                            TokenType::Num(val) => args.push(*val),
+                            TokenType::Comma => {},
+                            _ => panic!("function args error"),
+                        }
+                        self.pos += 1;
+                    }
+                    NodeType::Function(ident.clone(), args)
                 } else {
-                    let tail = self.locals.last();
-                    offset = match tail {
-                        Some(var) => var.offset + 8,
-                        None => 8,
+                    let offset;
+                    if let Some(lvar) = self.find_lvar(t.clone()) {
+                        offset = lvar.offset;
+                    } else {
+                        let tail = self.locals.last();
+                        offset = match tail {
+                            Some(var) => var.offset + 8,
+                            None => 8,
+                        };
+                    }
+                    let lvar = LVar {
+                        name: ident.into(),
+                        len: ident.len() as i32,
+                        offset
                     };
+                    self.locals.push(lvar);
+                    NodeType::LVar(offset)
                 }
-                let lvar = LVar {
-                    name: ident.into(),
-                    len: ident.len() as i32,
-                    offset
-                };
-                self.locals.push(lvar);
-                NodeType::LVar(offset)
             },
             _ => {
                 self.expect(TokenType::LeftParen);

@@ -22,6 +22,7 @@ pub enum TokenType {
     Gt,             // >
     Assign,         // =
     Semicolon,      // ;
+    Comma,           // ,
     LeftParen,      // (
     RightParen,     // )
     LeftBrace,      // {
@@ -41,6 +42,7 @@ impl TokenType {
             '<' => Some(Lt),
             '>' => Some(Gt),
             ';' => Some(Semicolon),
+            ',' => Some(Comma),
             '(' => Some(LeftParen),
             ')' => Some(RightParen),
             '{' => Some(LeftBrace),

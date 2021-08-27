@@ -147,7 +147,18 @@ impl Generator {
                 self.src.push_str("  mov rax, [rax]\n");
                 self.src.push_str("  push rax\n");
                 return;
-            }
+            },
+            NodeType::Function(ident, args) => {
+                let regs = ["rdi","rsi","rdx","rcx","r8","r9"];
+                for (i, reg) in regs.iter().enumerate() {
+                    if let Some(val) = args.get(i) {
+                        self.src.push_str(&format!("  mov {}, {}\n", reg, val.to_string()));
+                        continue;
+                    }
+                    break;
+                }
+                self.src.push_str(&format!("  call {}\n", ident));
+            },
             NodeType::Assign(lhs, rhs) => {
                 self.gen_lval(*lhs);
                 self.gen_expr(*rhs);
