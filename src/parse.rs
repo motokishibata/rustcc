@@ -1,9 +1,14 @@
 use crate::TokenType;
 
-pub fn parse(tokens: &Vec<TokenType>) -> NodeType {
+pub fn parse(tokens: &Vec<TokenType>) -> Vec<NodeType> {
     let locals: &mut Vec<LVar> = &mut vec![];
     let mut parser = Parser::new(tokens, locals);
-    parser.program()
+
+    let mut nodes = vec![];
+    while tokens.len() != parser.pos {
+        nodes.push(parser.toplevel());
+    }
+    nodes
 }
 
 #[derive(Debug, Clone)]
@@ -21,14 +26,16 @@ pub enum NodeType {
     Gt(Box<NodeType>, Box<NodeType>),
     Negative(Box<NodeType>),        // -
     LVar(i32),
-    Function(String, Vec<i32>),
+    Call(String, Vec<NodeType>),
+    Func(String, Vec<NodeType>, Box<NodeType>, usize),  // ident, args, body, stacksize
     Assign(Box<NodeType>, Box<NodeType>),
     Return(Box<NodeType>),
     If(Box<NodeType>, Box<NodeType>, Option<Box<NodeType>>),
     While(Box<NodeType>, Box<NodeType>),
     For(Option<Box<NodeType>>, Option<Box<NodeType>>, Option<Box<NodeType>>, Box<NodeType>),
     Block(Vec<NodeType>),
-    Program(Vec<NodeType>),        // top node
+    ExprStmt(Box<NodeType>),
+    CompStmt(Vec<NodeType>),
 }
 
 #[derive(Debug, Clone)]
@@ -86,94 +93,117 @@ impl<'a> Parser<'a> {
         false
     }
 
-    // program = stmt*
-    fn program(&mut self) -> NodeType {
-        let mut stmts = vec![];
-        while self.tokens.len() != self.pos {
-            stmts.push(self.stmt());
+    // トップレベルは関数である前提
+    // TODO: グローバル変数とかは無視してる
+    fn toplevel(&mut self) -> NodeType {
+        let t = &self.tokens[self.pos];
+        let name: String;
+        if let TokenType::Ident(ident) = t {
+            name = ident.clone();
+        } else {
+            panic!("not started ident is function")
         }
-        NodeType::Program(stmts)
+        self.pos += 1;
+
+        // TODO: 一旦引数無しで定義できるように
+        self.expect(TokenType::LeftParen);
+        let args = vec![];
+        self.expect(TokenType::RightParen);
+
+        self.expect(TokenType::LeftBrace);
+        let body = Box::new(self.compound_stmt());
+
+        // TODO: 引数無しなのでスタックサイズも0
+        NodeType::Func(name, args, body, 0)
     }
 
-    // stmt =  expr ";"
+    // coumpound_stmt = stmt*
+    fn compound_stmt(&mut self) -> NodeType {
+        let mut stmts = vec![];
+        while !self.consume(TokenType::RightBrace) {
+            stmts.push(self.stmt());
+        }
+        NodeType::CompStmt(stmts)
+    }
+
+    // stmt =  expr_stmt ";"
     //      | "{" stmt* "}"
     //      | "if" "(" expr ")" stmt ("else" stmt)?
     //      | "while" "(" expr ")" stmt
-    //      |  "for" "(" expr? ";" expr? ";" expr? ")" stmt
+    //      | "for" "(" expr? ";" expr? ";" expr? ")" stmt
     //      | "return" expr ";"
     fn stmt(&mut self) -> NodeType {
         let t = &self.tokens[self.pos];
-
+        self.pos += 1;
         match t {
+            TokenType::If => {
+                self.expect(TokenType::LeftParen);
+                let expr = Box::new(self.expr());
+                self.expect(TokenType::RightParen);
+                let stmt = Box::new(self.stmt());
+                let mut else_stmt = None;
+                if self.consume(TokenType::Else) {
+                    else_stmt = Some(Box::new(self.stmt()));
+                }
+                NodeType::If(expr, stmt, else_stmt)
+            },
+            TokenType::For => {
+                self.expect(TokenType::LeftParen);
+
+                let mut init = None;
+                if !self.consume(TokenType::Semicolon) {
+                    init = Some(Box::new(self.expr()));
+                    self.expect(TokenType::Semicolon);
+                }
+
+                let mut cond = None;
+                if !self.consume(TokenType::Semicolon) {
+                    cond = Some(Box::new(self.expr()));
+                    self.expect(TokenType::Semicolon);
+                }
+
+                let mut inc = None;
+                if !self.consume(TokenType::RightParen) {
+                    inc = Some(Box::new(self.expr()));
+                    self.expect(TokenType::RightParen);
+                }
+
+                let stmt = Box::new(self.stmt());
+                NodeType::For(init, cond, inc, stmt)
+            },
+            TokenType::While => {
+                self.expect(TokenType::LeftParen);
+                let expr = Box::new(self.expr());
+                self.expect(TokenType::RightParen);
+                let stmt = Box::new(self.stmt());
+                // TODO: 参考ソースでは、条件のみ指定したfor文としてノードを作っている
+                NodeType::While(expr, stmt)
+            },
+            TokenType::Return => {
+                let expr = self.expr();
+                self.expect(TokenType::Semicolon);
+                NodeType::Return(Box::new(expr))
+            },
             TokenType::LeftBrace => {
-                self.pos += 1;
                 let mut stmts = vec![];
                 while !self.consume(TokenType::RightBrace) {
                     stmts.push(self.stmt());
                 }
                 NodeType::Block(stmts)
             }
-            TokenType::Return => {
-                self.pos += 1;
-                let expr = self.expr();
-                self.expect(TokenType::Semicolon);
-                NodeType::Return(Box::new(expr))
-            },
-            TokenType::If => {
-                self.pos += 1;
-                self.expect(TokenType::LeftParen);
-                let expr = Box::new(self.expr());
-                self.expect(TokenType::RightParen);
-                let stmt = Box::new(self.stmt());
-                let else_stmt;
-                if self.consume(TokenType::Else) {
-                    else_stmt = Some(Box::new(self.stmt()));
-                } else {
-                    else_stmt = None;
-                }
-                NodeType::If(expr, stmt, else_stmt)
-            },
-            TokenType::While => {
-                self.pos += 1;
-                self.expect(TokenType::LeftParen);
-                let expr = Box::new(self.expr());
-                self.expect(TokenType::RightParen);
-                let stmt = Box::new(self.stmt());
-                NodeType::While(expr, stmt)
-            },
-            TokenType::For => {
-                self.pos += 1;
-                self.expect(TokenType::LeftParen);
-                let expr1;
-                if self.consume(TokenType::Semicolon) {
-                    expr1 = None;
-                } else {
-                    expr1 = Some(Box::new(self.expr()));
-                    self.expect(TokenType::Semicolon);
-                }
-                let expr2;
-                if self.consume(TokenType::Semicolon) {
-                    expr2 = None;
-                } else {
-                    expr2 = Some(Box::new(self.expr()));
-                    self.expect(TokenType::Semicolon);
-                }
-                let expr3;
-                if self.consume(TokenType::RightParen) {
-                    expr3 = None;
-                } else {
-                    expr3 = Some(Box::new(self.expr()));
-                    self.expect(TokenType::RightParen);
-                }
-                let stmt = Box::new(self.stmt());
-                NodeType::For(expr1, expr2, expr3, stmt)
-            },
             _ => {
-                let expr = self.expr();
-                self.expect(TokenType::Semicolon);
-                expr
+                // 代入式などがあるので必要
+                self.pos -= 1;
+                self.expr_stmt()
             }
         }
+    }
+
+    // expr_stmt = expr ";"
+    fn expr_stmt(&mut self) -> NodeType {
+        let expr = self.expr();
+        self.expect(TokenType::Semicolon);
+        NodeType::ExprStmt(Box::new(expr))
     }
 
     // expr = assign
@@ -287,26 +317,12 @@ impl<'a> Parser<'a> {
     // primary = num | ident ("(" ")")? | "(" expr ")"
     fn primary(&mut self) -> NodeType {
         let t = &self.tokens[self.pos];
+        self.pos += 1;
         match t {
-            TokenType::Num(val) => {
-                self.pos += 1;
-                NodeType::Num(*val)
-            },
+            TokenType::Num(val) => NodeType::Num(*val),
             TokenType::Ident(ident) => {
-                self.pos += 1;
-                if self.consume(TokenType::LeftParen) {
-                    let mut args = vec![];
-                    while !self.consume(TokenType::RightParen) {
-                        let t = &self.tokens[self.pos];
-                        match t {
-                            TokenType::Num(val) => args.push(*val),
-                            TokenType::Comma => {},
-                            _ => panic!("function args error"),
-                        }
-                        self.pos += 1;
-                    }
-                    NodeType::Function(ident.clone(), args)
-                } else {
+                // 括弧が続かない場合はローカル変数
+                if !self.consume(TokenType::LeftParen) {
                     let offset;
                     if let Some(lvar) = self.find_lvar(t.clone()) {
                         offset = lvar.offset;
@@ -323,15 +339,29 @@ impl<'a> Parser<'a> {
                         offset
                     };
                     self.locals.push(lvar);
-                    NodeType::LVar(offset)
+                    return NodeType::LVar(offset);
                 }
+
+                // 括弧が続くなら関数呼び出し
+                let mut args = vec![];
+                if self.consume(TokenType::RightParen) {
+                    return NodeType::Call(ident.clone(), args);
+                }
+
+                // TODO: 参考ソースではassignだが、一旦引数での直接代入はサポートしない
+                args.push(self.primary());
+                while self.consume(TokenType::Comma) {
+                    args.push(self.primary());
+                }
+                self.expect(TokenType::RightParen);
+                NodeType::Call(ident.clone(), args)
             },
-            _ => {
-                self.expect(TokenType::LeftParen);
+            TokenType::LeftParen => {
                 let nt = self.expr();
                 self.expect(TokenType::RightParen);
                 nt
-            }
+            },
+            _ => panic!("failed primary")
         }
     }
 }

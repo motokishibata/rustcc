@@ -8,11 +8,13 @@ use std::io::prelude::*;
 
 mod token;
 mod parse;
-mod gen;
+mod gen_ir;
+mod gen_x86;
 
 use token::*;
 use parse::*;
-use gen::*;
+use gen_ir::*;
+use gen_x86::*;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -53,7 +55,8 @@ fn compile(input: String, is_file: bool, is_print_contents: bool, is_print_asm: 
 
     let tokens = tokenize(contents.as_str());
     let nodes = parse(&tokens);
-    let asm = gen_x86(nodes);
+    let ir = gen_ir(nodes);
+    let asm = gen_x86(ir);
 
     if is_print_contents {
         println!("------- read contents -------");
