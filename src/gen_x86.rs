@@ -33,6 +33,19 @@ impl Generator {
             let rhs = ir.rhs.unwrap_or(0);
             match ir.op {
                 Imm => self.emit(&format!("  mov {}, {}", REGS[lhs], rhs as i32)),
+                Add => self.emit(&format!("  add {}, {}", REGS[lhs], REGS[rhs])),
+                Sub => self.emit(&format!("  sub {}, {}", REGS[lhs], REGS[rhs])),
+                Mul => {
+                    self.emit(&format!("  mov rax, {}", REGS[rhs]));
+                    self.emit(&format!("  mul {}", REGS[lhs]));
+                    self.emit(&format!("  mov {}, rax", REGS[lhs]));
+                },
+                Div => {
+                    self.emit(&format!("  mov rax, {}", REGS[lhs]));
+                    self.emit("cqo");
+                    self.emit(&format!("  div {}", REGS[rhs]));
+                    self.emit(&format!("  mov {}, rax", REGS[lhs]));
+                },
                 Return => {
                     self.emit(&format!("  mov rax, {}", REGS[lhs]));
                     self.emit(&format!("  jmp {}", ret));

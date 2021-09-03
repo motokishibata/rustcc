@@ -95,6 +95,13 @@ impl IrGenerator {
         self.add(IROp::StoreArg(8), bpoff, argreg);
     }
 
+    fn gen_binop(&mut self, op: IROp, lhs: Box<NodeType>, rhs: Box<NodeType>) -> Option<usize> {
+        let r1 = self.gen_expr(*lhs);
+        let r2 = self.gen_expr(*rhs);
+        self.add(op, r1, r2);
+        r1
+    }
+
     fn gen_expr(&mut self, node: NodeType) -> Option<usize> {
         match node {
             NodeType::Num(val) => {
@@ -103,6 +110,10 @@ impl IrGenerator {
                 self.add(IROp::Imm, r, Some(val as usize));
                 r
             },
+            NodeType::Plus(lhs, rhs) => self.gen_binop(IROp::Add, lhs, rhs),
+            NodeType::Minus(lhs, rhs) => self.gen_binop(IROp::Sub, lhs, rhs),
+            NodeType::Mul(lhs, rhs) => self.gen_binop(IROp::Mul, lhs, rhs),
+            NodeType::Div(lhs, rhs) => self.gen_binop(IROp::Div, lhs, rhs),
             _ => panic!("unknown node in expr")
         }
     }
