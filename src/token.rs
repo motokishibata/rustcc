@@ -58,6 +58,8 @@ impl Tokenizer {
         self.src.get(self.pos + advance_from_pos).map(|ch| {
             if ch == &'\n' {
                 CharacterType::NewLine
+            } else if ch == &'\r' {
+                CharacterType::CarriageReturn
             } else if ch == &' ' || ch == &'\t' {
                 CharacterType::Whitespace
             } else if ch.is_alphabetic() || ch == &'_' {
@@ -73,10 +75,7 @@ impl Tokenizer {
     fn scan(&mut self, keywords: &HashMap<String, TokenType>) -> Vec<TokenType> {
         'outer: while let Some(head_char) = self.get_character(0) {
             match head_char {
-                CharacterType::NewLine => {
-                    self.pos += 1;
-                    self.tokens.push(TokenType::NewLine)
-                },
+                CharacterType::NewLine | CharacterType::CarriageReturn |
                 CharacterType::Whitespace => self.pos += 1,
                 CharacterType::Alphabetic => self.ident(&keywords),
                 CharacterType::Digit => self.number(),

@@ -56,6 +56,7 @@ impl TokenType {
 pub enum CharacterType {
     Whitespace,     // ' '
     NewLine,        // \n
+    CarriageReturn, // \r
     Alphabetic,
     Digit,
     NonAlphabetic(char),

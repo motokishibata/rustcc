@@ -56,11 +56,17 @@ pub enum IROp {
     Sub,
     Mul,
     Div,
+    Eq,
+    Ne,
+    Le,
+    Lt,
     Imm,
     Return,
     Call(String, usize),
     Label,
     Bprel,
+    Jmp,
+    Unless,
     Load(u8),
     Store(u8),
     StoreArg(u8),
@@ -82,15 +88,24 @@ impl IR {
 struct IrGenerator {
     code: Vec<IR>,
     num_regs: usize,
+    nlabel: usize,
 }
 
 impl IrGenerator {
     fn new(code: Vec<IR>) -> Self {
-        Self { code, num_regs: 0 }
+        Self { code, num_regs: 0, nlabel: 0 }
     }
 
     fn add(&mut self, op: IROp, lhs: Option<usize>, rhs: Option<usize>) {
         self.code.push(IR::new(op, lhs, rhs));
+    }
+
+    fn label(&mut self, x: Option<usize>) {
+        self.add(IROp::Label, x, None);
+    }
+
+    fn jmp(&mut self, x: Option<usize>) {
+        self.add(IROp::Jmp, x, None);
     }
 
     fn load(&mut self, dst: Option<usize>, src: Option<usize>) {
@@ -147,7 +162,11 @@ impl IrGenerator {
                 self.store(lhs, rhs);
                 rhs
             },
-            _ => panic!("unknown node in expr")
+            NodeType::Eq(lhs, rhs) => self.gen_binop(IROp::Eq, lhs, rhs),
+            NodeType::Ne(lhs, rhs) => self.gen_binop(IROp::Ne, lhs, rhs),
+            NodeType::Lt(lhs, rhs) | NodeType::Gt(rhs, lhs) => self.gen_binop(IROp::Lt, lhs, rhs),
+            NodeType::Le(lhs, rhs) | NodeType::Ge(rhs, lhs) => self.gen_binop(IROp::Le, lhs, rhs),
+            _ => panic!("unknown node in expr：{:?}", node)
         }
     }
 
@@ -157,9 +176,37 @@ impl IrGenerator {
                 let r = self.gen_expr(*expr);
                 self.add(IROp::Return, r, None);
             },
-            NodeType::ExprStmt(expr) => {
+            NodeType::If(cond, then, els_may) => {
+                if let Some(els) = els_may {
+                    let x = Some(self.nlabel);
+                    self.nlabel += 1;
+                    let y = Some(self.nlabel);
+                    self.nlabel += 1;
+                    let r = self.gen_expr(*cond);
+                    self.add(IROp::Unless, r, x);
+                    self.gen_stmt(*then.clone());
+                    self.jmp(y);
+                    self.label(x);
+                    self.gen_stmt(*els);
+                    self.label(y);
+                    return;
+                }
+
+                let x = Some(self.nlabel);
+                self.nlabel += 1;
+                let r = self.gen_expr(*cond);
+                self.add(IROp::Unless, r, x);
+                self.gen_stmt(*then);
+                self.label(x);
+                },
+                NodeType::ExprStmt(expr) => {
                 self.gen_expr(*expr);
-            }
+            },
+            NodeType::Block(stmts) => {
+                for stmt in stmts {
+                    self.gen_stmt(stmt);
+                }
+            },
             _ => panic!("unknown node in stmt：{:?}", node)
         }
     }

@@ -26,6 +26,14 @@ impl Generator {
         self.src.push_str(&format!("{}\n", s));
     }
 
+    fn emit_cmp(&mut self, ir:IR, s: &str) {
+        let lhs = ir.lhs.unwrap();
+        let rhs = ir.rhs.unwrap();
+        self.emit(&format!("  cmp {}, {}", REGS[lhs], REGS[rhs]));
+        self.emit(&format!("  {} {}", s, REGS8[lhs]));
+        self.emit(&format!("  movzb {}, {}", REGS[lhs], REGS8[lhs]));
+    }
+
     fn gen(&mut self, f: Function) {
         use self::IROp::*;
         let ret = format!(".Lend{}", self.label);
@@ -55,9 +63,19 @@ impl Generator {
                     self.emit(&format!("  div {}", REGS[rhs]));
                     self.emit(&format!("  mov {}, rax", REGS[lhs]));
                 },
+                Eq => self.emit_cmp(ir, "sete"),
+                Ne => self.emit_cmp(ir, "setne"),
+                Lt => self.emit_cmp(ir, "setl"),
+                Le => self.emit_cmp(ir, "setle"),
+                Label => self.emit(&format!(".L{}:", lhs)),
                 Return => {
                     self.emit(&format!("  mov rax, {}", REGS[lhs]));
                     self.emit(&format!("  jmp {}", ret));
+                },
+                Jmp => self.emit(&format!("  jmp .L{}", lhs)),
+                Unless => {
+                    self.emit(&format!("  cmp {}, 0", REGS[lhs]));
+                    self.emit(&format!("  je .L{}", rhs));
                 },
                 Load(size) => {
                     self.emit(&format!("  mov {}, [{}]", reg(lhs, size), REGS[rhs]));

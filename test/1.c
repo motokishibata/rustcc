@@ -1,1 +1,6 @@
-main () { a=5; return a; }
+main () {
+    if (5>=6) {
+        return 5;
+    }
+    return 6;
+}
