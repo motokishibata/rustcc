@@ -25,7 +25,7 @@ fn main() {
 
     let mut is_print_contents = false;
     let mut is_print_asm = false;
-    let mut is_file = false;
+    let mut is_file = true;
     let mut input = String::new();
     for arg in args[1..].iter() {
         // cargo runでは "-" 始まりの引数を渡せないためエスケープ用の文字を追加
@@ -36,7 +36,7 @@ fn main() {
         match arg {
             "-i" => is_print_contents = true,
             "-a" => is_print_asm = true,
-            "-f" => is_file = true,
+            "-f" => is_file = false,
             _ => input = arg.to_string()
         }
     }

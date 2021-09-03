@@ -1,1 +1,1 @@
-0;
+main () { a=1; return a; }
