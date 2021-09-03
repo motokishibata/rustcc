@@ -1,7 +1,16 @@
 use crate::gen_ir::{Function, IROp, IR};
 
 const REGS: [&str; 7] = ["r10", "r11", "rbx", "r12", "r13", "r14", "r15"];
+const REGS8: [&str; 7] = ["r10b", "r11b", "bl", "r12b", "r13b", "r14b", "r15b"];
 const ARGREGS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+
+fn reg(r: usize, size: u8) -> &'static str {
+    match size {
+        1 => REGS8[r],
+        8 => REGS[r],
+        _ => unreachable!(),
+    }
+}
 
 struct Generator {
     src: String,
@@ -50,6 +59,14 @@ impl Generator {
                     self.emit(&format!("  mov rax, {}", REGS[lhs]));
                     self.emit(&format!("  jmp {}", ret));
                 },
+                Load(size) => {
+                    self.emit(&format!("  mov {}, [{}]", reg(lhs, size), REGS[rhs]));
+                    if size == 1 {
+                        self.emit(&format!("  movzb {}, {}", REGS[lhs], REGS8[lhs]));
+                    }
+                },
+                Store(size) => self.emit(&format!("  mov [{}], {}", REGS[lhs], reg(rhs, size))),
+                Bprel => self.emit(&format!("  lea {}, [rbp-{}]", REGS[lhs], rhs)),
                 _ => {}
             }
         }

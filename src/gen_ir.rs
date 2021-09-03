@@ -56,11 +56,13 @@ pub enum IROp {
     Sub,
     Mul,
     Div,
-    Mov,
     Imm,
     Return,
     Call(String, usize),
     Label,
+    Bprel,
+    Load(u8),
+    Store(u8),
     StoreArg(u8),
 }
 
@@ -91,8 +93,28 @@ impl IrGenerator {
         self.code.push(IR::new(op, lhs, rhs));
     }
 
+    fn load(&mut self, dst: Option<usize>, src: Option<usize>) {
+        self.add(IROp::Load(8), dst, src);
+    }
+
+    fn store(&mut self, dst: Option<usize>, src: Option<usize>) {
+        self.add(IROp::Store(8), dst, src);
+    }
+
     fn store_arg(&mut self, bpoff: Option<usize>, argreg: Option<usize>) {
         self.add(IROp::StoreArg(8), bpoff, argreg);
+    }
+
+    fn gen_lval(&mut self, node: Box<NodeType>) -> Option<usize> {
+        match *node {
+            NodeType::LVar(offset) => {
+                let r = Some(self.num_regs);
+                self.num_regs += 1;
+                self.add(IROp::Bprel, r, Some(offset as usize));
+                r
+            },
+            _ => unreachable!(),
+        }
     }
 
     fn gen_binop(&mut self, op: IROp, lhs: Box<NodeType>, rhs: Box<NodeType>) -> Option<usize> {
@@ -110,10 +132,21 @@ impl IrGenerator {
                 self.add(IROp::Imm, r, Some(val as usize));
                 r
             },
+            NodeType::LVar(_) => {
+                let r = self.gen_lval(Box::new(node.clone()));
+                self.load(r, r);
+                r
+            },
             NodeType::Plus(lhs, rhs) => self.gen_binop(IROp::Add, lhs, rhs),
             NodeType::Minus(lhs, rhs) => self.gen_binop(IROp::Sub, lhs, rhs),
             NodeType::Mul(lhs, rhs) => self.gen_binop(IROp::Mul, lhs, rhs),
             NodeType::Div(lhs, rhs) => self.gen_binop(IROp::Div, lhs, rhs),
+            NodeType::Assign(lhs, rhs) => {
+                let rhs = self.gen_expr(*rhs);
+                let lhs = self.gen_lval(lhs);
+                self.store(lhs, rhs);
+                rhs
+            },
             _ => panic!("unknown node in expr")
         }
     }
@@ -124,7 +157,10 @@ impl IrGenerator {
                 let r = self.gen_expr(*expr);
                 self.add(IROp::Return, r, None);
             },
-            _ => panic!("unknown node in stmt")
+            NodeType::ExprStmt(expr) => {
+                self.gen_expr(*expr);
+            }
+            _ => panic!("unknown node in stmt：{:?}", node)
         }
     }
 }

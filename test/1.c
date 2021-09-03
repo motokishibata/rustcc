@@ -1,1 +1,1 @@
-main () { a=1; return a; }
+main () { a=5; return a; }

@@ -329,8 +329,8 @@ impl<'a> Parser<'a> {
                     } else {
                         let tail = self.locals.last();
                         offset = match tail {
-                            Some(var) => var.offset + 8,
-                            None => 8,
+                            Some(var) => var.offset + 4,
+                            None => 4,
                         };
                     }
                     let lvar = LVar {
